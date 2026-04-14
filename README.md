@@ -162,3 +162,4 @@ docker run -d -p 7860:7860 --env-file .env price-api
 ## 修改品种
 
 编辑 `app/config.py` 的 `SYMBOLS` 列表。
+# price-api
