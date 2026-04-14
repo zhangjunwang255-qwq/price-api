@@ -101,6 +101,23 @@ async def ws_quote(ws: WebSocket):
 
 # ── HTTP 接口 ─────────────────────────────────────────
 
+@app.get("/")
+def root():
+    return {
+        "service": "SRE Price API",
+        "version": "1.0.0",
+        "status":  app_state.status,
+        "endpoints": {
+            "/quote":           "所有品种最新行情",
+            "/quote/{symbol}":  "单个品种行情",
+            "/history":         "价格历史（?symbol=GFEX.PT&minutes=60）",
+            "/symbols":         "已订阅品种列表",
+            "/health":          "健康检查",
+            "/ws/quote":        "WebSocket 实时推送",
+        },
+    }
+
+
 @app.get("/quote")
 def get_quote():
     return {
