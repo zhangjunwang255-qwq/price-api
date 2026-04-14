@@ -15,8 +15,9 @@ MYSQL_USER     = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "price_history")
 
-# 要订阅的品种列表（上海期货交易所，PG=铂金 PA=钯金，KQ.m@ 主力合约）
-SYMBOLS = ["KQ.m@SHFE.pg", "KQ.m@SHFE.pa"]
+# 要订阅的品种列表（广期所，PT=铂金 PD=钯金，2025年11月上市）
+# 合约月份：2/4/6/8/10/12月，当前主力约 2606
+SYMBOLS = ["GFEX.PT2606", "GFEX.PD2606"]
 
 # wait_update 超时秒数（保证休市时也能正常轮询）
 DEADLINE_SEC = 2.0
