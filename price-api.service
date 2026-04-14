@@ -1,0 +1,25 @@
+[Unit]
+Description=SRE Price API (TqSdk 实时行情)
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/price-api
+EnvironmentFile=/opt/price-api/.env
+ExecStart=/usr/bin/python3 -m app.main
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# 安全加固
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target
