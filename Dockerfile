@@ -12,3 +12,5 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 7860
 
 CMD ["python", "-m", "app.main"]
+
+# Railway Nixpacks start command (if not using Dockerfile)

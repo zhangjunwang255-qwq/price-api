@@ -145,8 +145,9 @@ def list_symbols():
 
 @app.get("/health")
 def health():
+    ok = app_state.status in ("Running", "Connecting", "AuthRequired", "Starting")
     return {
-        "ok":     app_state.status == "Running",
+        "ok":     ok,
         "status": app_state.status,
         "error":  app_state.error,
     }
