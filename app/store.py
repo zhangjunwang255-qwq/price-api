@@ -46,6 +46,7 @@ class PriceStore:
         self._prev:   dict[str, float] = {}  # symbol → 上一个价格（算涨跌用）
         self._symbols: list[str]       = []
         self._conn: pymysql.Connection | None = None
+        self._db_ok: bool = True  # MySQL 可用标记
 
         self._write_queue: Queue = Queue()
         self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
@@ -55,8 +56,10 @@ class PriceStore:
 
     # ── 数据库连接 ────────────────────────────────────
 
-    def _get_conn(self) -> pymysql.Connection:
-        """懒加载连接，断了自动重连"""
+    def _get_conn(self) -> pymysql.Connection | None:
+        """懒加载连接，断了自动重连；不可用时返回 None"""
+        if not self._db_ok:
+            return None
         if self._conn is None or not self._conn.open:
             # Railway 内置数据库直接用 DATABASE_URL
             db_url = os.getenv("DATABASE_URL", "")
@@ -134,8 +137,8 @@ class PriceStore:
             log.info("MySQL price_history 表初始化完成")
 
         except Exception as e:
-            log.error("MySQL 初始化失败: %s", e)
-            raise
+            log.warning("MySQL 初始化失败（降级为纯内存模式）: %s", e)
+            self._db_ok = False
 
     # ── 异步写入线程 ─────────────────────────────────
 
@@ -161,7 +164,7 @@ class PriceStore:
                     last_flush = time.time()
 
     def _flush(self, batch: list[tuple]):
-        if not batch:
+        if not batch or not self._db_ok:
             return
         try:
             conn = self._get_conn()
@@ -232,6 +235,8 @@ class PriceStore:
     def get_history(self, symbol: str,
                      minutes: int = 60,
                      limit: int = 200) -> list[dict]:
+        if not self._db_ok:
+            return []
         since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
         try:
             conn = self._get_conn()
