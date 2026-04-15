@@ -61,8 +61,13 @@ _ws_lock    = threading.Lock()
 
 def broadcast(data: dict):
     """线程安全地推送给所有 WS 客户端"""
+    global ws_clients
+    if not ws_clients:
+        return
     dead = set()
-    for ws in ws_clients:
+    with _ws_lock:
+        clients_copy = list(ws_clients)
+    for ws in clients_copy:
         try:
             asyncio.run(ws.send_json(data))
         except Exception:
