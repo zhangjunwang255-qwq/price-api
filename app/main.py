@@ -6,6 +6,8 @@ import asyncio, threading
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import PORT
 from .store  import PriceStore
@@ -80,6 +82,16 @@ def broadcast(data: dict):
 # 注入广播函数给 tqsdk_worker
 import app.tqsdk_worker as tw
 tw._ws_broadcast = broadcast
+
+# ── 静态前端页面 ───────────────────────────────────────
+frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.isdir(frontend_dir):
+    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
+@app.get("/dashboard")
+def dashboard():
+    """铂钯金实时行情监控面板"""
+    return FileResponse(os.path.join(frontend_dir, "index.html"))
 
 
 @app.websocket("/ws/quote")

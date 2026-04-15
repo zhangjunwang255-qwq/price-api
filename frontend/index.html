@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>铂金 & 钯金 实时行情</title>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --card:     #1a1d27;
+      --border:   #2d3148;
+      --text:     #e2e4ea;
+      --muted:    #6b7280;
+      --pt-color: #f59e0b;
+      --pd-color: #818cf8;
+      --up:       #22c55e;
+      --dn:       #ef4444;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text);
+    }
+
+    header .subtitle {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.4rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      max-width: 900px;
+      margin: 0 auto 2rem;
+    }
+
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem 1.6rem;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.2rem;
+    }
+
+    .card-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .card-symbol {
+      font-size: 0.7rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .price {
+      font-size: 2.6rem;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 0.3rem;
+    }
+
+    .price.pt { color: var(--pt-color); }
+    .price.pd { color: var(--pd-color); }
+
+    .unit {
+      font-size: 0.85rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .meta {
+      display: flex;
+      gap: 1.2rem;
+      margin-top: 0.6rem;
+    }
+
+    .meta-item {
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .meta-item span {
+      color: var(--text);
+    }
+
+    .change {
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+    }
+
+    .change.up   { color: var(--up); background: rgba(34,197,94,0.12); }
+    .change.dn   { color: var(--dn); background: rgba(239,68,68,0.12); }
+    .change.flat  { color: var(--muted); background: rgba(107,114,128,0.12); }
+
+    /* ── Chart ─────────────────────────── */
+    .chart-wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem 1.6rem;
+    }
+
+    .chart-wrap h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    canvas { width: 100% !important; }
+
+    /* ── Status bar ─────────────────────── */
+    .status-bar {
+      max-width: 900px;
+      margin: 1.5rem auto 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
+    .status-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+
+    .status-dot.live { background: var(--up); box-shadow: 0 0 6px var(--up); animation: pulse 2s infinite; }
+    .status-dot.err  { background: var(--dn); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>铂金 · 钯金 实时行情</h1>
+    <div class="subtitle">GFEX · K线 Tick · 自动换月</div>
+  </header>
+
+  <div class="grid">
+
+    <!-- 铂金 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">铂金 Platinum</span>
+        <span class="card-symbol">GFEX.pt</span>
+      </div>
+      <div class="price pt" id="pt-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">
+        <div class="meta-item">涨跌: <span id="pt-change">--</span></div>
+        <div class="meta-item">成交量: <span id="pt-vol">--</span></div>
+      </div>
+      <div style="margin-top:.7rem">
+        <span id="pt-change-tag" class="change flat">--</span>
+      </div>
+    </div>
+
+    <!-- 钯金 -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">钯金 Palladium</span>
+        <span class="card-symbol">GFEX.pd</span>
+      </div>
+      <div class="price pd" id="pd-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">
+        <div class="meta-item">涨跌: <span id="pd-change">--</span></div>
+        <div class="meta-item">成交量: <span id="pd-vol">--</span></div>
+      </div>
+      <div style="margin-top:.7rem">
+        <span id="pd-change-tag" class="change flat">--</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 价格走势图 -->
+  <div class="chart-wrap">
+    <h2>价格走势</h2>
+    <canvas id="chart" height="200"></canvas>
+  </div>
+
+  <div class="status-bar">
+    <span id="status-text"><span class="status-dot live"></span>连接中...</span>
+    <span id="last-update">--</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    const API = window.location.origin.replace(/:\d+$/, ":8080");
+
+    // ── 价格历史环形缓冲区 ──────────────────────────────
+    const MAX_PTS = 60;
+    const ptPrices = [],  ptLabels  = [];
+    const pdPrices = [],  pdLabels  = [];
+
+    // ── Chart.js 折线图 ─────────────────────────────────
+    const ctx = document.getElementById("chart").getContext("2d");
+    const chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          {
+            label: "铂金 (PT)",
+            data: [],
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245,158,11,0.08)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          },
+          {
+            label: "钯金 (PD)",
+            data: [],
+            borderColor: "#818cf8",
+            backgroundColor: "rgba(129,140,248,0.08)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        animation: { duration: 200 },
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          x: {
+            grid: { color: "rgba(45,49,72,0.6)" },
+            ticks: {
+              color: "#6b7280",
+              maxTicksLimit: 8,
+              font: { size: 11 },
+            },
+          },
+          y: {
+            grid: { color: "rgba(45,49,72,0.6)" },
+            ticks: {
+              color: "#6b7280",
+              font: { size: 11 },
+              callback: v => v.toFixed(1),
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            labels: { color: "#9ca3af", font: { size: 12 } },
+          },
+          tooltip: {
+            backgroundColor: "#1a1d27",
+            borderColor: "#2d3148",
+            borderWidth: 1,
+            titleColor: "#e2e4ea",
+            bodyColor: "#9ca3af",
+          },
+        },
+      },
+    });
+
+    // ── 更新界面 ────────────────────────────────────────
+    function fmt2(v) {
+      if (v == null || isNaN(v)) return "--";
+      return Number(v).toFixed(2);
+    }
+
+    function fmtVol(v) {
+      if (!v) return "--";
+      return Number(v).toLocaleString();
+    }
+
+    let closed = false;
+
+    async function poll() {
+      if (closed) return;
+      try {
+        const res = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        const data  = json.data || {};
+
+        const pt = data["KQ.m@GFEX.pt"];
+        const pd = data["KQ.m@GFEX.pd"];
+
+        if (pt) {
+          const p = fmt2(pt.price);
+          document.getElementById("pt-price").innerHTML  = `${p}<span class="unit"> 元/克</span>`;
+          document.getElementById("pt-change").textContent = `${fmt2(pt.change)} (${fmt2(pt.change_pct)}%)`;
+          document.getElementById("pt-vol").textContent    = fmtVol(pt.volume);
+
+          const tag = document.getElementById("pt-change-tag");
+          const c = pt.change || 0;
+          tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+          tag.textContent = (c > 0 ? "+" : "") + fmt2(pt.change_pct) + "%";
+        }
+
+        if (pd) {
+          const p = fmt2(pd.price);
+          document.getElementById("pd-price").innerHTML  = `${p}<span class="unit"> 元/克</span>`;
+          document.getElementById("pd-change").textContent = `${fmt2(pd.change)} (${fmt2(pd.change_pct)}%)`;
+          document.getElementById("pd-vol").textContent    = fmtVol(pd.volume);
+
+          const tag = document.getElementById("pd-change-tag");
+          const c = pd.change || 0;
+          tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+          tag.textContent = (c > 0 ? "+" : "") + fmt2(pd.change_pct) + "%";
+        }
+
+        // 记录历史
+        const now = new Date();
+        const t   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+        ptPrices.push(pt ? pt.price : null);
+        ptLabels.push(t);
+        pdPrices.push(pd ? pd.price : null);
+        pdLabels.push(t);
+        if (ptPrices.length > MAX_PTS) { ptPrices.shift(); ptLabels.shift(); }
+        if (pdPrices.length > MAX_PTS) { pdPrices.shift(); pdLabels.shift(); }
+
+        chart.data.labels = ptLabels;
+        chart.data.datasets[0].data = ptPrices;
+        chart.data.datasets[1].data = pdPrices;
+        chart.update("none");
+
+        document.getElementById("status-text").innerHTML =
+          '<span class="status-dot live"></span>已连接';
+        document.getElementById("last-update").textContent =
+          "更新时间: " + t;
+
+      } catch (e) {
+        document.getElementById("status-text").innerHTML =
+          '<span class="status-dot err"></span>连接异常 ' + e.message;
+      }
+
+      setTimeout(poll, 2000);
+    }
+
+    poll();
+  </script>
+</body>
+</html>
