@@ -15,8 +15,9 @@ MYSQL_USER     = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "")
 MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "price_history")
 
-# 要订阅的品种列表（广期所，PT=铂金 PD=钯金，KQ.m@ 主力连续合约自动换月）
-SYMBOLS = ["KQ.m@GFEX.PT", "KQ.m@GFEX.PD"]
+# 要订阅的品种列表（广期所，pt=铂金 pd=钯金，KQ.m@ 主力连续合约自动换月）
+# 注意：品种代码必须小写！
+SYMBOLS = ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"]
 
 # wait_update 超时秒数（保证休市时也能正常轮询）
 DEADLINE_SEC = 2.0

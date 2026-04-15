@@ -73,8 +73,8 @@ def start_tqsdk(user: str, password: str, store, app_state):
                     latest = store.latest
                     log.info(
                         "行情 | 铂金=%s | 钯金=%s",
-                        latest.get("KQ.m@GFEX.PT", {}).get("price", "N/A"),
-                        latest.get("KQ.m@GFEX.PD", {}).get("price", "N/A"),
+                        latest.get("KQ.m@GFEX.pt", {}).get("price", "N/A"),
+                        latest.get("KQ.m@GFEX.pd", {}).get("price", "N/A"),
                     )
                     last_log = now
 
