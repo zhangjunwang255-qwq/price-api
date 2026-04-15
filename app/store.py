@@ -17,6 +17,23 @@ from .config import (
 )
 
 
+def _is_trading_time() -> bool:
+    """判断当前是否处于贵金属期货交易时段（GFEX，白盘 + 夜盘）"""
+    now = datetime.now()
+    h = now.hour
+    t = h * 60 + now.minute  # 当天分钟数
+
+    # 夜盘：21:00 - 23:59 和 00:00 - 14:59（跨天，视为同一交易时段）
+    if h >= 21 or h < 15:
+        return True
+
+    # 白盘：09:00 - 10:15、10:30 - 11:30、13:30 - 15:00
+    if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
+        return True
+
+    return False
+
+
 def _parse_db_url(url: str):
     """解析 mysql://user:pass@host:port/db → (host, port, user, pass, db)"""
     u = urlparse(url)
@@ -205,6 +222,7 @@ class PriceStore:
                 "datetime":      dt,
                 "change":        change,
                 "change_pct":    change_pct,
+                "is_trading":    _is_trading_time(),
             }
             self._latest[symbol] = record
             self._prev[symbol]   = _nan(price)

@@ -129,6 +129,10 @@
     .change.dn   { color: var(--dn); background: rgba(239,68,68,0.12); }
     .change.flat  { color: var(--muted); background: rgba(107,114,128,0.12); }
 
+    .session-tag { font-size: 0.72rem; font-weight: 600; padding: .2rem .55rem; border-radius: 6px; }
+    .session-tag.live    { color: var(--up); background: rgba(34,197,94,0.12); }
+    .session-tag.closed  { color: var(--dn); background: rgba(239,68,68,0.12); }
+
     /* ── Chart ─────────────────────────── */
     .chart-wrap {
       max-width: 900px;
@@ -200,6 +204,7 @@
       <div style="margin-top:.7rem">
         <span id="pt-change-tag" class="change flat">--</span>
       </div>
+      <div id="pt-session" class="session-tag" style="margin-top:.5rem"></div>
     </div>
 
     <!-- 钯金 -->
@@ -216,6 +221,7 @@
       <div style="margin-top:.7rem">
         <span id="pd-change-tag" class="change flat">--</span>
       </div>
+      <div id="pd-session" class="session-tag" style="margin-top:.5rem"></div>
     </div>
 
   </div>
@@ -342,6 +348,15 @@
           const c = pt.change || 0;
           tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
           tag.textContent = (c > 0 ? "+" : "") + fmt2(pt.change_pct) + "%";
+
+          const sess = document.getElementById("pt-session");
+          if (pt.is_trading) {
+            sess.className = "session-tag live";
+            sess.textContent = "● 交易中";
+          } else {
+            sess.className = "session-tag closed";
+            sess.textContent = "○ 非交易时段";
+          }
         }
 
         if (pd) {
@@ -354,6 +369,15 @@
           const c = pd.change || 0;
           tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
           tag.textContent = (c > 0 ? "+" : "") + fmt2(pd.change_pct) + "%";
+
+          const sess = document.getElementById("pd-session");
+          if (pd.is_trading) {
+            sess.className = "session-tag live";
+            sess.textContent = "● 交易中";
+          } else {
+            sess.className = "session-tag closed";
+            sess.textContent = "○ 非交易时段";
+          }
         }
 
         // 记录历史

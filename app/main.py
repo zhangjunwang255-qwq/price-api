@@ -131,6 +131,7 @@ def root():
             "/symbols":         "已订阅品种列表",
             "/health":          "健康检查",
             "/ws/quote":        "WebSocket 实时推送",
+            "/dashboard":       "铂钯金实时监控面板（可视化页面）",
         },
     }
 
