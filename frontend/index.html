@@ -592,7 +592,7 @@
       loadHistory("1hour", "1hour", "count-1hour");
     }
 
-    // ── 实时轮询（两种模式都用）───────────────────────
+    // ── 轮询：竞标 2s / 日常 5min ────────────────────
     function fmt2(v) {
       if (v == null || isNaN(v)) return "--";
       return Number(v).toFixed(2);
@@ -602,7 +602,9 @@
       return v ? Number(v).toLocaleString() : "--";
     }
 
-    async function poll() {
+    let currentMode = "竞标";
+
+    async function fetchQuoteAndUpdatePriceCards() {
       try {
         const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -612,8 +614,6 @@
         const now = new Date();
         const t   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
 
-        let ptPrice = null, pdPrice = null;
-
         SYMBOLS.forEach(sym => {
           const q = data[sym];
           if (!q) return;
@@ -621,86 +621,141 @@
           const isPT = sym.includes(".pt");
           const id   = isPT ? "pt" : "pd";
           const p    = fmt2(q.price);
-
-          if (isPT) ptPrice = q.price;
-          else       pdPrice = q.price;
-
-          // 竞标模式价格卡片
-          document.getElementById(`${id}-price`).innerHTML =
-            `${p}<span class="unit"> 元/克</span>`;
-          document.getElementById(`${id}-change`).textContent =
-            `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
-          document.getElementById(`${id}-vol`).textContent = fmtVol(q.volume);
-
-          const ctag = document.getElementById(`${id}-change-tag`);
           const c    = q.change || 0;
-          ctag.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-          ctag.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
 
-          const stag = document.getElementById(`${id}-session`);
-          if (q.is_trading) {
-            stag.className = "session-tag live";
-            stag.textContent = "● 交易中";
-          } else {
-            stag.className = "session-tag closed";
-            stag.textContent = "○ 非交易时段";
-          }
+          const ctag = (prefix) => {
+            const el = document.getElementById(`${prefix}${id}-change-tag`);
+            el.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+            el.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+          };
 
-          // 日常模式价格卡片（同样更新）
-          document.getElementById(`r-${id}-price`).innerHTML =
-            `${p}<span class="unit"> 元/克</span>`;
-          document.getElementById(`r-${id}-change`).textContent =
-            `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
-          document.getElementById(`r-${id}-vol`).textContent = fmtVol(q.volume);
+          const stag = (prefix) => {
+            const el = document.getElementById(`${prefix}${id}-session`);
+            if (q.is_trading) {
+              el.className = "session-tag live";
+              el.textContent = "● 交易中";
+            } else {
+              el.className = "session-tag closed";
+              el.textContent = "○ 非交易时段";
+            }
+          };
 
-          const ctag2 = document.getElementById(`r-${id}-change-tag`);
-          ctag2.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-          ctag2.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+          // 竞标模式卡片
+          document.getElementById(`${id}-price`).innerHTML  = `${p}<span class="unit"> 元/克</span>`;
+          document.getElementById(`${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+          document.getElementById(`${id}-vol`).textContent   = fmtVol(q.volume);
+          ctag("");
+          stag("");
 
-          const stag2 = document.getElementById(`r-${id}-session`);
-          if (q.is_trading) {
-            stag2.className = "session-tag live";
-            stag2.textContent = "● 交易中";
-          } else {
-            stag2.className = "session-tag closed";
-            stag2.textContent = "○ 非交易时段";
+          // 日常模式卡片（仅日常模式显示）
+          if (currentMode === "日常") {
+            document.getElementById(`r-${id}-price`).innerHTML  = `${p}<span class="unit"> 元/克</span>`;
+            document.getElementById(`r-${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+            document.getElementById(`r-${id}-vol`).textContent   = fmtVol(q.volume);
+            ctag("r-");
+            stag("r-");
           }
         });
 
-        // 竞标模式：追加 K 线图
-        if (ptPrice != null || pdPrice != null) {
-          jingbiao_buf.push({
-            t:   now,
-            pt:  ptPrice,
-            pd:  pdPrice,
-          });
+        document.getElementById("status-text").innerHTML =
+          '<span class="status-dot live"></span>已连接';
+        document.getElementById("last-update").textContent = "价格更新: " + t;
+
+      } catch (e) {
+        document.getElementById("status-text").innerHTML =
+          '<span class="status-dot err"></span>连接异常 ' + e.message;
+      }
+    }
+
+    // ── 竞标模式：2s 轮询价格 + K 线图 ────────────────
+    let jingbiaoTimer = null;
+
+    async function pollJingbiao() {
+      await fetchQuoteAndUpdatePriceCards();
+
+      try {
+        const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
+        const json = await res.json();
+        const data  = json.data || {};
+        const now   = new Date();
+        const pt    = data["KQ.m@GFEX.pt"]?.price ?? null;
+        const pd    = data["KQ.m@GFEX.pd"]?.price ?? null;
+
+        if (pt != null || pd != null) {
+          jingbiao_buf.push({ t: now, pt, pd });
           if (jingbiao_buf.length > MAX_PTS) jingbiao_buf.shift();
           if (!jingbiaoChart) initJingbiaoChart();
 
-          jingbiaoChart.data.labels = jingbiao_buf.map(b =>
+          jingbiaoChart.data.labels    = jingbiao_buf.map(b =>
             `${String(b.t.getHours()).padStart(2,"0")}:${String(b.t.getMinutes()).padStart(2,"0")}:${String(b.t.getSeconds()).padStart(2,"0")}`
           );
           jingbiaoChart.data.datasets[0].data = jingbiao_buf.map(b => b.pt);
           jingbiaoChart.data.datasets[1].data = jingbiao_buf.map(b => b.pd);
           jingbiaoChart.update("none");
 
-          document.getElementById("jingbiao-count").textContent =
-            `${jingbiao_buf.length} 条`;
+          document.getElementById("jingbiao-count").textContent = `${jingbiao_buf.length} 条`;
         }
-
-        document.getElementById("status-text").innerHTML =
-          '<span class="status-dot live"></span>已连接';
-        document.getElementById("last-update").textContent = "更新: " + t;
-
       } catch (e) {
-        document.getElementById("status-text").innerHTML =
-          '<span class="status-dot err"></span>连接异常 ' + e.message;
+        // ignore — fetchQuoteAndUpdatePriceCards already handles errors
       }
 
-      setTimeout(poll, 2000);
+      jingbiaoTimer = setTimeout(pollJingbiao, 2000);
     }
 
-    poll();
+    pollJingbiao();
+
+    // ── 日常模式：5min 轮询价格（价格卡片 + 历史图）───
+    let richangPriceTimer = null;
+
+    async function pollRichangPrice() {
+      await fetchQuoteAndUpdatePriceCards();
+      richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
+    }
+
+    // ── 模式切换 ────────────────────────────────────
+    async function fetchMode() {
+      try {
+        const res  = await fetch(`${API}/mode`);
+        const json = await res.json();
+        const mode = json.mode || "竞标";
+        currentMode = mode;
+
+        document.getElementById("mode-interval").textContent =
+          mode === "竞标"
+            ? "价格每 2 秒实时更新 · K线图内存缓冲"
+            : `价格每 5 分钟更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
+
+        document.getElementById("btn-jingbiao").className =
+          "mode-btn" + (mode === "竞标" ? " active" : "");
+        document.getElementById("btn-richang").className =
+          "mode-btn" + (mode === "日常" ? " active" : "");
+
+        if (mode === "日常") {
+          document.getElementById("jingbiao-view").style.display = "none";
+          document.getElementById("richang-view").style.display = "block";
+          clearTimeout(jingbiaoTimer);
+          initHistoryCharts();
+          loadAllHistory();
+          // 立即更新一次价格，再按 5min 轮询
+          fetchQuoteAndUpdatePriceCards();
+          richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
+          if (!window._histTimer) {
+            window._histTimer = setInterval(loadAllHistory, 5 * 60 * 1000);
+          }
+        } else {
+          document.getElementById("jingbiao-view").style.display = "block";
+          document.getElementById("richang-view").style.display = "none";
+          clearTimeout(richangPriceTimer);
+          if (window._histTimer) {
+            clearInterval(window._histTimer);
+            window._histTimer = null;
+          }
+          pollJingbiao();
+        }
+      } catch (e) {
+        console.error("fetchMode 失败:", e);
+      }
+    }
   </script>
 </body>
 </html>
