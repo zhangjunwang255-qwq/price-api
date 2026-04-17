@@ -4,7 +4,7 @@ app/main.py — FastAPI 入口
 import logging, os
 import asyncio, threading
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -132,8 +132,26 @@ def root():
             "/health":          "健康检查",
             "/ws/quote":        "WebSocket 实时推送",
             "/dashboard":       "铂钯金实时监控面板（可视化页面）",
+            "/mode":            "获取/设置采样模式 (GET 查询, POST 设置)",
         },
     }
+
+
+# ── 采样模式控制 ─────────────────────────────────────
+
+@app.get("/mode")
+def get_mode():
+    """获取当前采样模式"""
+    return store.mode_info
+
+
+@app.post("/mode")
+def set_mode(mode: str = Form(...)):
+    """设置采样模式: 竞标(实时) 或 日常(5分钟)"""
+    result = store.set_mode(mode)
+    if not result.get("ok"):
+        raise HTTPException(400, result.get("error"))
+    return result
 
 
 @app.get("/quote")

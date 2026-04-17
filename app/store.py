@@ -65,6 +65,11 @@ class PriceStore:
         self._conn: pymysql.Connection | None = None
         self._db_ok: bool = True  # MySQL 可用标记
 
+        # 采样模式控制
+        self._mode = "竞标"  # 当前模式: "日常" 或 "竞标"
+        self._interval = 0   # 采样间隔(秒): 0=实时, 300=5分钟
+        self._last_sample_time = 0.0  # 上次采样时间
+
         self._write_queue: Queue = Queue()
         self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
         self._writer_thread.start()
@@ -206,7 +211,17 @@ class PriceStore:
 
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
+        # 采样间隔控制：日常模式每 interval 秒才更新一次
+        now = time.time()
+        if self._interval > 0 and (now - self._last_sample_time) < self._interval:
+            return  # 未到采样间隔，跳过
+
         with self._lock:
+            # 重新检查（加锁后）
+            if self._interval > 0 and (time.time() - self._last_sample_time) < self._interval:
+                return
+
+            self._last_sample_time = now
             prev_price = self._prev.get(symbol)
             change     = None
             change_pct = None
@@ -237,6 +252,27 @@ class PriceStore:
                 dt,
                 datetime.now(timezone.utc).isoformat(),
             ))
+
+    # ── 模式控制 ──────────────────────────────────────
+
+    def set_mode(self, mode: str) -> dict:
+        """设置采样模式: 竞标(实时) 或 日常(5分钟)"""
+        if mode not in ("竞标", "日常"):
+            return {"ok": False, "error": "无效模式，可用: 竞标, 日常"}
+
+        with self._lock:
+            self._mode = mode
+            self._interval = 0 if mode == "竞标" else 300  # 0=实时, 300=5分钟
+            self._last_sample_time = 0.0  # 切换模式后立即允许更新
+            log.info("采样模式切换: %s (间隔 %d 秒)", mode, self._interval)
+
+        return {"ok": True, "mode": mode, "interval": self._interval}
+
+    @property
+    def mode_info(self) -> dict:
+        """获取当前模式信息"""
+        with self._lock:
+            return {"mode": self._mode, "interval": self._interval}
 
     # ── 读取 ──────────────────────────────────────────
 
