@@ -158,7 +158,15 @@
 
     .chart-canvas {
       width: 100% !important;
-      height: 200px !important;
+      height: 260px !important;
+    }
+
+    @media (min-width: 640px) {
+      .chart-canvas { height: 320px !important; }
+    }
+
+    @media (min-width: 960px) {
+      .chart-canvas { height: 400px !important; }
     }
 
     /* ── 模式切换按钮 ───────────────────────── */
@@ -334,7 +342,7 @@
           <span class="chart-count" id="count-5min">--</span>
         </div>
         <div class="chart-loading" id="loading-5min">加载中...</div>
-        <canvas id="chart-5min" class="chart-canvas" style="display:none;height:120px!important"></canvas>
+        <canvas id="chart-5min" class="chart-canvas" style="display:none"></canvas>
       </div>
       <div class="chart-card">
         <div class="chart-header">
@@ -342,7 +350,7 @@
           <span class="chart-count" id="count-15min">--</span>
         </div>
         <div class="chart-loading" id="loading-15min">加载中...</div>
-        <canvas id="chart-15min" class="chart-canvas" style="display:none;height:120px!important"></canvas>
+        <canvas id="chart-15min" class="chart-canvas" style="display:none"></canvas>
       </div>
       <div class="chart-card">
         <div class="chart-header">
@@ -350,7 +358,7 @@
           <span class="chart-count" id="count-1hour">--</span>
         </div>
         <div class="chart-loading" id="loading-1hour">加载中...</div>
-        <canvas id="chart-1hour" class="chart-canvas" style="display:none;height:120px!important"></canvas>
+        <canvas id="chart-1hour" class="chart-canvas" style="display:none"></canvas>
       </div>
     </div>
   </div>
