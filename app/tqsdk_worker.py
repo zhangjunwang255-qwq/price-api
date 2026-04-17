@@ -40,7 +40,7 @@ def start_tqsdk(user: str, password: str, store, app_state):
             log.info("TqSdk 连接中 ...")
 
             try:
-                api = TqApi(auth=TqAuth(user, password), timeout=60)
+                api = TqApi(auth=TqAuth(user, password))
                 _api_ref = api
                 app_state.status      = "Running"
                 app_state.error       = None
