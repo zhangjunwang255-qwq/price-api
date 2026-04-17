@@ -24,55 +24,55 @@
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      padding: 2rem;
+      padding: 1.5rem 1rem;
     }
 
     header {
       text-align: center;
-      margin-bottom: 2.5rem;
+      margin-bottom: 1.5rem;
     }
 
     header h1 {
-      font-size: 1.8rem;
+      font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: 0.05em;
-      color: var(--text);
     }
 
     header .subtitle {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: var(--muted);
-      margin-top: 0.4rem;
+      margin-top: 0.3rem;
     }
 
+    /* ── Price cards (竞标模式) ──────────── */
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
+      gap: 1rem;
       max-width: 900px;
-      margin: 0 auto 2rem;
+      margin: 0 auto 1rem;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 500px) {
       .grid { grid-template-columns: 1fr; }
     }
 
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.4rem 1.6rem;
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
     }
 
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.2rem;
+      margin-bottom: 0.8rem;
     }
 
     .card-title {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -80,72 +80,84 @@
     }
 
     .card-symbol {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: var(--muted);
       background: var(--bg);
-      padding: 0.2rem 0.5rem;
+      padding: 0.2rem 0.45rem;
       border-radius: 4px;
     }
 
     .price {
-      font-size: 2.6rem;
+      font-size: 2.2rem;
       font-weight: 700;
       line-height: 1;
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.25rem;
     }
 
     .price.pt { color: var(--pt-color); }
     .price.pd { color: var(--pd-color); }
 
     .unit {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--muted);
       font-weight: 400;
     }
 
     .meta {
       display: flex;
-      gap: 1.2rem;
-      margin-top: 0.6rem;
-    }
-
-    .meta-item {
-      font-size: 0.72rem;
+      gap: 1rem;
+      font-size: 0.68rem;
       color: var(--muted);
+      margin-top: 0.5rem;
     }
 
-    .meta-item span {
-      color: var(--text);
-    }
+    .meta span { color: var(--text); }
 
-    .change {
-      font-size: 0.9rem;
+    .change-tag {
+      font-size: 0.8rem;
       font-weight: 600;
-      padding: 0.2rem 0.6rem;
-      border-radius: 6px;
+      padding: 0.18rem 0.5rem;
+      border-radius: 5px;
+      display: inline-block;
+      margin-top: 0.4rem;
     }
 
-    .change.up   { color: var(--up); background: rgba(34,197,94,0.12); }
-    .change.dn   { color: var(--dn); background: rgba(239,68,68,0.12); }
-    .change.flat  { color: var(--muted); background: rgba(107,114,128,0.12); }
+    .change-tag.up   { color: var(--up); background: rgba(34,197,94,0.12); }
+    .change-tag.dn   { color: var(--dn); background: rgba(239,68,68,0.12); }
+    .change-tag.flat { color: var(--muted); background: rgba(107,114,128,0.12); }
 
-    .session-tag { font-size: 0.72rem; font-weight: 600; padding: .2rem .55rem; border-radius: 6px; }
-    .session-tag.live    { color: var(--up); background: rgba(34,197,94,0.12); }
-    .session-tag.closed  { color: var(--dn); background: rgba(239,68,68,0.12); }
+    .session-tag {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: .18rem .5rem;
+      border-radius: 5px;
+      display: inline-block;
+      margin-top: 0.4rem;
+    }
 
-    /* ── Mode toggle ───────────────────────── */
+    .session-tag.live   { color: var(--up); background: rgba(34,197,94,0.12); }
+    .session-tag.closed { color: var(--dn); background: rgba(239,68,68,0.12); }
+
+    /* ── Mode toggle ─────────────────── */
+    .mode-interval {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 0.4rem;
+    }
+
     .mode-bar {
       display: flex;
       justify-content: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
       margin-bottom: 1.5rem;
     }
 
     .mode-btn {
       font-family: inherit;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      padding: 0.5rem 1rem;
+      padding: 0.45rem 0.9rem;
       border: 1px solid var(--border);
       border-radius: 6px;
       background: var(--card);
@@ -154,10 +166,7 @@
       transition: all 0.2s;
     }
 
-    .mode-btn:hover {
-      border-color: var(--text);
-      color: var(--text);
-    }
+    .mode-btn:hover { border-color: var(--text); color: var(--text); }
 
     .mode-btn.active {
       background: var(--text);
@@ -165,41 +174,69 @@
       border-color: var(--text);
     }
 
-    .mode-interval {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-align: center;
-      margin-bottom: 0.5rem;
-    }
-
-    /* ── Chart ─────────────────────────── */
-    .chart-wrap {
+    /* ── History charts (日常模式) ──────── */
+    #charts-wrap {
       max-width: 900px;
       margin: 0 auto;
+      display: none; /* 默认隐藏，竞标模式不显示 */
+    }
+
+    #charts-wrap.visible { display: block; }
+
+    .charts-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .chart-card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.4rem 1.6rem;
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
     }
 
-    .chart-wrap h2 {
-      font-size: 0.75rem;
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.7rem;
+    }
+
+    .chart-title {
+      font-size: 0.72rem;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.1em;
       color: var(--muted);
-      margin-bottom: 1rem;
     }
 
-    canvas { width: 100% !important; }
+    .chart-count {
+      font-size: 0.62rem;
+      color: var(--muted);
+    }
+
+    .chart-canvas {
+      width: 100% !important;
+      height: 120px !important;
+    }
+
+    .chart-loading {
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
 
     /* ── Status bar ─────────────────────── */
     .status-bar {
       max-width: 900px;
-      margin: 1.5rem auto 0;
+      margin: 1.2rem auto 0;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--muted);
     }
 
@@ -207,7 +244,7 @@
       display: inline-block;
       width: 7px; height: 7px;
       border-radius: 50%;
-      margin-right: 5px;
+      margin-right: 4px;
       vertical-align: middle;
     }
 
@@ -224,18 +261,18 @@
 
   <header>
     <h1>铂金 · 钯金 实时行情</h1>
-    <div class="subtitle">GFEX · K线 Tick · 自动换月</div>
+    <div class="subtitle">GFEX · KQ.m@GFEX.pt · KQ.m@GFEX.pd</div>
   </header>
 
   <!-- 采样模式切换 -->
-  <div class="mode-interval" id="mode-interval">当前采样间隔: <span id="interval-val">--</span></div>
+  <div class="mode-interval" id="mode-interval"></div>
   <div class="mode-bar">
-    <button class="mode-btn active" id="btn-jingbiao" onclick="setMode('竞标')">竞标模式 (实时)</button>
-    <button class="mode-btn" id="btn-richang" onclick="setMode('日常')">日常模式 (5分钟)</button>
+    <button class="mode-btn active" id="btn-jingbiao" onclick="setMode('竞标')">竞标模式</button>
+    <button class="mode-btn" id="btn-richang" onclick="setMode('日常')">日常模式</button>
   </div>
 
-  <div class="grid">
-
+  <!-- 实时价格卡片（竞标模式） -->
+  <div class="grid" id="price-cards">
     <!-- 铂金 -->
     <div class="card">
       <div class="card-header">
@@ -243,14 +280,10 @@
         <span class="card-symbol">GFEX.pt</span>
       </div>
       <div class="price pt" id="pt-price">--<span class="unit"> 元/克</span></div>
-      <div class="meta">
-        <div class="meta-item">涨跌: <span id="pt-change">--</span></div>
-        <div class="meta-item">成交量: <span id="pt-vol">--</span></div>
-      </div>
-      <div style="margin-top:.7rem">
-        <span id="pt-change-tag" class="change flat">--</span>
-      </div>
-      <div id="pt-session" class="session-tag" style="margin-top:.5rem"></div>
+      <div class="meta">涨跌: <span id="pt-change">--</span></div>
+      <div class="meta">成交量: <span id="pt-vol">--</span></div>
+      <div id="pt-change-tag" class="change-tag flat">--</div>
+      <div id="pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
     </div>
 
     <!-- 钯金 -->
@@ -260,22 +293,46 @@
         <span class="card-symbol">GFEX.pd</span>
       </div>
       <div class="price pd" id="pd-price">--<span class="unit"> 元/克</span></div>
-      <div class="meta">
-        <div class="meta-item">涨跌: <span id="pd-change">--</span></div>
-        <div class="meta-item">成交量: <span id="pd-vol">--</span></div>
-      </div>
-      <div style="margin-top:.7rem">
-        <span id="pd-change-tag" class="change flat">--</span>
-      </div>
-      <div id="pd-session" class="session-tag" style="margin-top:.5rem"></div>
+      <div class="meta">涨跌: <span id="pd-change">--</span></div>
+      <div class="meta">成交量: <span id="pd-vol">--</span></div>
+      <div id="pd-change-tag" class="change-tag flat">--</div>
+      <div id="pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
     </div>
-
   </div>
 
-  <!-- 价格走势图 -->
-  <div class="chart-wrap">
-    <h2>价格走势</h2>
-    <canvas id="chart" height="200"></canvas>
+  <!-- 历史走势图（日常模式） -->
+  <div id="charts-wrap">
+    <div class="charts-grid">
+      <!-- 5 分钟 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">📈 5 分钟走势</span>
+          <span class="chart-count" id="count-5min">-- 条数据</span>
+        </div>
+        <div class="chart-loading" id="loading-5min">加载中...</div>
+        <canvas id="chart-5min" class="chart-canvas" style="display:none"></canvas>
+      </div>
+
+      <!-- 15 分钟 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">📊 15 分钟走势</span>
+          <span class="chart-count" id="count-15min">-- 条数据</span>
+        </div>
+        <div class="chart-loading" id="loading-15min">加载中...</div>
+        <canvas id="chart-15min" class="chart-canvas" style="display:none"></canvas>
+      </div>
+
+      <!-- 1 小时 -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">📉 1 小时走势</span>
+          <span class="chart-count" id="count-1hour">-- 条数据</span>
+        </div>
+        <div class="chart-loading" id="loading-1hour">加载中...</div>
+        <canvas id="chart-1hour" class="chart-canvas" style="display:none"></canvas>
+      </div>
+    </div>
   </div>
 
   <div class="status-bar">
@@ -286,22 +343,210 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script>
     const API = window.location.origin;
+    const SYMBOLS = ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"];
 
-    // ── 采样模式控制 ─────────────────────────────────
+    // 当前模式
+    let currentMode = "竞标";
+
+    // Chart.js 实例
+    const charts = {};
+
+    // ── Chart.js 通用配置 ────────────────────────────
+    function makeChartConfig(label, borderColor) {
+      return {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [{
+            label,
+            data: [],
+            borderColor,
+            backgroundColor: borderColor.replace(")", ", 0.06)").replace("rgb", "rgba"),
+            fill: true,
+            tension: 0.35,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 0 },
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            x: {
+              grid: { color: "rgba(45,49,72,0.5)" },
+              ticks: {
+                color: "#6b7280",
+                maxTicksLimit: 6,
+                font: { size: 10 },
+                maxRotation: 0,
+              },
+            },
+            y: {
+              grid: { color: "rgba(45,49,72,0.5)" },
+              ticks: {
+                color: "#6b7280",
+                font: { size: 10 },
+                callback: v => v.toFixed(1),
+              },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#1a1d27",
+              borderColor: "#2d3148",
+              borderWidth: 1,
+              titleColor: "#e2e4ea",
+              bodyColor: "#9ca3af",
+            },
+          },
+        },
+      };
+    }
+
+    function initCharts() {
+      if (charts["5min"]) return;
+      charts["5min"]  = new Chart(
+        document.getElementById("chart-5min").getContext("2d"),
+        makeChartConfig("铂金/钯金", "rgb(245,158,11)")
+      );
+      charts["15min"] = new Chart(
+        document.getElementById("chart-15min").getContext("2d"),
+        makeChartConfig("铂金/钯金", "rgb(129,140,248)")
+      );
+      charts["1hour"] = new Chart(
+        document.getElementById("chart-1hour").getContext("2d"),
+        makeChartConfig("铂金/钯金", "rgb(34,197,94)")
+      );
+    }
+
+    function setChartData(key, labels, ptData, pdData, countId) {
+      const c = charts[key];
+      if (!c) return;
+
+      // 两品种画同一张图，叠在一起
+      c.data.labels = labels;
+      c.data.datasets[0].data = ptData;
+      c.update("none");
+
+      document.getElementById(countId).textContent = labels.length + " 条数据";
+    }
+
+    // ── 获取历史数据 ─────────────────────────────────
+    async function loadHistory(symbol, interval, chartKey, countId, ptColor, pdColor) {
+      const canvas = document.getElementById(`chart-${chartKey}`);
+      const loading = document.getElementById(`loading-${chartKey}`);
+
+      try {
+        // 并行拉两个品种
+        const [ptRes, pdRes] = await Promise.all([
+          fetch(`${API}/history?symbol=KQ.m@GFEX.pt&interval_=${interval}&limit=200`),
+          fetch(`${API}/history?symbol=KQ.m@GFEX.pd&interval_=${interval}&limit=200`),
+        ]);
+
+        const ptJson = await ptRes.json();
+        const pdJson = await pdRes.json();
+
+        const ptRecords = ptJson.records || [];
+        const pdRecords = pdJson.records || [];
+
+        if (ptRecords.length === 0 && pdRecords.length === 0) {
+          loading.textContent = "暂无数据（请切换到日常模式等待数据积累）";
+          return;
+        }
+
+        // 统一时间轴（取铂金的 label，钯金按索引对齐）
+        const labels = ptRecords.map(r => {
+          const d = new Date(r.datetime);
+          return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+        });
+
+        const ptPrices = ptRecords.map(r => r.price);
+        const pdPrices = pdRecords.map(r => r.price);
+
+        // 动态注入两个 dataset
+        const c = charts[chartKey];
+        c.data.labels = labels;
+        c.data.datasets = [
+          {
+            label: "铂金 PT",
+            data: ptPrices,
+            borderColor: "#f59e0b",
+            backgroundColor: "rgba(245,158,11,0.06)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+          },
+          {
+            label: "钯金 PD",
+            data: pdPrices,
+            borderColor: "#818cf8",
+            backgroundColor: "rgba(129,140,248,0.06)",
+            fill: true,
+            tension: 0.35,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+          },
+        ];
+
+        loading.style.display = "none";
+        canvas.style.display = "block";
+        c.update("none");
+
+        document.getElementById(countId).textContent =
+          `PT ${ptRecords.length} 条 / PD ${pdRecords.length} 条`;
+
+      } catch (e) {
+        loading.textContent = "加载失败: " + e.message;
+      }
+    }
+
+    function loadAllHistory() {
+      loadHistory("pt", "5min",  "5min",  "count-5min",  "#f59e0b", "#818cf8");
+      loadHistory("pt", "15min", "15min", "count-15min", "#818cf8", "#f59e0b");
+      loadHistory("pt", "1hour", "1hour", "count-1hour", "#22c55e", "#f59e0b");
+    }
+
+    // ── 模式切换 ────────────────────────────────────
     async function fetchMode() {
       try {
-        const res = await fetch(`${API}/mode`);
+        const res  = await fetch(`${API}/mode`);
         const json = await res.json();
         const mode = json.mode || "竞标";
-        const interval = json.interval || 0;
+        currentMode = mode;
 
-        document.getElementById("interval-val").textContent =
-          interval === 0 ? "实时" : `${interval / 60} 分钟`;
+        document.getElementById("interval-val") &&
+          (document.getElementById("interval-val").textContent =
+            mode === "竞标" ? "实时" : `${json.interval / 60} 分钟`);
 
         document.getElementById("btn-jingbiao").className =
           "mode-btn" + (mode === "竞标" ? " active" : "");
         document.getElementById("btn-richang").className =
           "mode-btn" + (mode === "日常" ? " active" : "");
+
+        // 切换显示
+        const chartsWrap = document.getElementById("charts-wrap");
+        if (mode === "日常") {
+          chartsWrap.classList.add("visible");
+          initCharts();
+          loadAllHistory();
+          // 每 5 分钟刷新一次走势
+          if (!window._historyTimer) {
+            window._historyTimer = setInterval(loadAllHistory, 5 * 60 * 1000);
+          }
+        } else {
+          chartsWrap.classList.remove("visible");
+          if (window._historyTimer) {
+            clearInterval(window._historyTimer);
+            window._historyTimer = null;
+          }
+        }
       } catch (e) {
         console.error("获取模式失败:", e);
       }
@@ -311,13 +556,10 @@
       try {
         const form = new FormData();
         form.append("mode", mode);
-        const res = await fetch(`${API}/mode`, {
-          method: "POST",
-          body: form
-        });
+        const res  = await fetch(`${API}/mode`, { method: "POST", body: form });
         const json = await res.json();
         if (json.ok) {
-          fetchMode();  // 刷新显示
+          fetchMode();
         } else {
           alert("切换失败: " + json.error);
         }
@@ -326,83 +568,9 @@
       }
     }
 
-    // 初始获取模式
     fetchMode();
 
-    // ── 价格历史环形缓冲区 ──────────────────────────────
-    const MAX_PTS = 60;
-    const ptPrices = [],  ptLabels  = [];
-    const pdPrices = [],  pdLabels  = [];
-
-    // ── Chart.js 折线图 ─────────────────────────────────
-    const ctx = document.getElementById("chart").getContext("2d");
-    const chart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: [],
-        datasets: [
-          {
-            label: "铂金 (PT)",
-            data: [],
-            borderColor: "#f59e0b",
-            backgroundColor: "rgba(245,158,11,0.08)",
-            fill: true,
-            tension: 0.35,
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-          },
-          {
-            label: "钯金 (PD)",
-            data: [],
-            borderColor: "#818cf8",
-            backgroundColor: "rgba(129,140,248,0.08)",
-            fill: true,
-            tension: 0.35,
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        animation: { duration: 200 },
-        interaction: { mode: "index", intersect: false },
-        scales: {
-          x: {
-            grid: { color: "rgba(45,49,72,0.6)" },
-            ticks: {
-              color: "#6b7280",
-              maxTicksLimit: 8,
-              font: { size: 11 },
-            },
-          },
-          y: {
-            grid: { color: "rgba(45,49,72,0.6)" },
-            ticks: {
-              color: "#6b7280",
-              font: { size: 11 },
-              callback: v => v.toFixed(1),
-            },
-          },
-        },
-        plugins: {
-          legend: {
-            labels: { color: "#9ca3af", font: { size: 12 } },
-          },
-          tooltip: {
-            backgroundColor: "#1a1d27",
-            borderColor: "#2d3148",
-            borderWidth: 1,
-            titleColor: "#e2e4ea",
-            bodyColor: "#9ca3af",
-          },
-        },
-      },
-    });
-
-    // ── 更新界面 ────────────────────────────────────────
+    // ── 实时价格轮询（竞标模式）────────────────────────
     function fmt2(v) {
       if (v == null || isNaN(v)) return "--";
       return Number(v).toFixed(2);
@@ -413,80 +581,49 @@
       return Number(v).toLocaleString();
     }
 
-    let closed = false;
-
     async function poll() {
-      if (closed) return;
       try {
-        const res = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
+        const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const data  = json.data || {};
 
-        const pt = data["KQ.m@GFEX.pt"];
-        const pd = data["KQ.m@GFEX.pd"];
-
-        if (pt) {
-          const p = fmt2(pt.price);
-          document.getElementById("pt-price").innerHTML  = `${p}<span class="unit"> 元/克</span>`;
-          document.getElementById("pt-change").textContent = `${fmt2(pt.change)} (${fmt2(pt.change_pct)}%)`;
-          document.getElementById("pt-vol").textContent    = fmtVol(pt.volume);
-
-          const tag = document.getElementById("pt-change-tag");
-          const c = pt.change || 0;
-          tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-          tag.textContent = (c > 0 ? "+" : "") + fmt2(pt.change_pct) + "%";
-
-          const sess = document.getElementById("pt-session");
-          if (pt.is_trading) {
-            sess.className = "session-tag live";
-            sess.textContent = "● 交易中";
-          } else {
-            sess.className = "session-tag closed";
-            sess.textContent = "○ 非交易时段";
-          }
-        }
-
-        if (pd) {
-          const p = fmt2(pd.price);
-          document.getElementById("pd-price").innerHTML  = `${p}<span class="unit"> 元/克</span>`;
-          document.getElementById("pd-change").textContent = `${fmt2(pd.change)} (${fmt2(pd.change_pct)}%)`;
-          document.getElementById("pd-vol").textContent    = fmtVol(pd.volume);
-
-          const tag = document.getElementById("pd-change-tag");
-          const c = pd.change || 0;
-          tag.className = "change " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-          tag.textContent = (c > 0 ? "+" : "") + fmt2(pd.change_pct) + "%";
-
-          const sess = document.getElementById("pd-session");
-          if (pd.is_trading) {
-            sess.className = "session-tag live";
-            sess.textContent = "● 交易中";
-          } else {
-            sess.className = "session-tag closed";
-            sess.textContent = "○ 非交易时段";
-          }
-        }
-
-        // 记录历史
         const now = new Date();
         const t   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-        ptPrices.push(pt ? pt.price : null);
-        ptLabels.push(t);
-        pdPrices.push(pd ? pd.price : null);
-        pdLabels.push(t);
-        if (ptPrices.length > MAX_PTS) { ptPrices.shift(); ptLabels.shift(); }
-        if (pdPrices.length > MAX_PTS) { pdPrices.shift(); pdLabels.shift(); }
 
-        chart.data.labels = ptLabels;
-        chart.data.datasets[0].data = ptPrices;
-        chart.data.datasets[1].data = pdPrices;
-        chart.update("none");
+        SYMBOLS.forEach(sym => {
+          const q = data[sym];
+          if (!q) return;
+
+          const isPT = sym.includes(".pt");
+          const id   = isPT ? "pt" : "pd";
+          const p    = fmt2(q.price);
+
+          document.getElementById(`${id}-price`).innerHTML =
+            `${p}<span class="unit"> 元/克</span>`;
+          document.getElementById(`${id}-change`).textContent =
+            `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+          document.getElementById(`${id}-vol`).textContent =
+            fmtVol(q.volume);
+
+          const ctag = document.getElementById(`${id}-change-tag`);
+          const c    = q.change || 0;
+          ctag.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+          ctag.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+
+          const stag = document.getElementById(`${id}-session`);
+          if (q.is_trading) {
+            stag.className = "session-tag live";
+            stag.textContent = "● 交易中";
+          } else {
+            stag.className = "session-tag closed";
+            stag.textContent = "○ 非交易时段";
+          }
+        });
 
         document.getElementById("status-text").innerHTML =
           '<span class="status-dot live"></span>已连接';
-        document.getElementById("last-update").textContent =
-          "更新时间: " + t;
+        document.getElementById("last-update").textContent = "更新: " + t;
 
       } catch (e) {
         document.getElementById("status-text").innerHTML =

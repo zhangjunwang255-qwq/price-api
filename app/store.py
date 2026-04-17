@@ -1,189 +1,125 @@
 """
-app/store.py — 价格存储（内存缓存 + MySQL 持久化）
+app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
+只存原始 5 分钟数据，15min / 1hour 在查询时从 5min 数据聚合得出
 """
 import os, threading, time, logging
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from queue import Queue, Empty
-from urllib.parse import urlparse
 
-import pymysql
-from pymysql.cursors import DictCursor
+import psycopg2
 
-from .config import (
-    MYSQL_HOST, MYSQL_PORT, MYSQL_USER,
-    MYSQL_PASSWORD, MYSQL_DATABASE,
-    HISTORY_RETENTION_MIN,
-)
+from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS
+
+
+log = logging.getLogger("price-store")
 
 
 def _is_trading_time() -> bool:
     """判断当前是否处于贵金属期货交易时段（GFEX，白盘 + 夜盘）"""
     now = datetime.now()
     h = now.hour
-    t = h * 60 + now.minute  # 当天分钟数
-
-    # 夜盘：21:00 - 23:59 和 00:00 - 14:59（跨天，视为同一交易时段）
+    t = h * 60 + now.minute
     if h >= 21 or h < 15:
         return True
-
-    # 白盘：09:00 - 10:15、10:30 - 11:30、13:30 - 15:00
     if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
         return True
-
     return False
 
 
-def _parse_db_url(url: str):
-    """解析 mysql://user:pass@host:port/db → (host, port, user, pass, db)"""
-    u = urlparse(url)
-    return (
-        u.hostname or "localhost",
-        u.port or 3306,
-        u.username or "root",
-        u.password or "",
-        u.path.lstrip("/") or "price_history",
-    )
-
-log = logging.getLogger("price-store")
-
-
 def _nan(v: float) -> float:
-    return 0.0 if v != v else v  # NaN → 0.0
+    return 0.0 if v != v else v
 
 
 class PriceStore:
     """
-    内存缓存最新行情 + MySQL 持久化历史
+    内存缓存最新行情 + PostgreSQL 持久化原始 5 分钟数据
     """
 
     def __init__(self):
-        self._lock   = threading.RLock()
-        self._latest: dict[str, dict]  = {}  # symbol → 最新行情
-        self._prev:   dict[str, float] = {}  # symbol → 上一个价格（算涨跌用）
-        self._symbols: list[str]       = []
-        self._conn: pymysql.Connection | None = None
-        self._db_ok: bool = True  # MySQL 可用标记
+        self._lock     = threading.RLock()
+        self._latest:  dict[str, dict] = {}
+        self._prev:    dict[str, float] = {}
+        self._symbols: list[str] = list(SYMBOLS)
 
         # 采样模式控制
-        self._mode = "竞标"  # 当前模式: "日常" 或 "竞标"
-        self._interval = 0   # 采样间隔(秒): 0=实时, 300=5分钟
-        self._last_sample_time = 0.0  # 上次采样时间
+        self._mode             = "竞标"
+        self._interval         = 0           # 0=实时, 300=5分钟
+        self._last_sample_time = 0.0
 
-        self._write_queue: Queue = Queue()
-        self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
-        self._writer_thread.start()
+        # PostgreSQL
+        self._conn: psycopg2.extensions.connection | None = None
+        self._db_ok: bool = True
 
         self._init_db()
 
-    # ── 数据库连接 ────────────────────────────────────
+        # 后台写入线程（批量写 5min 数据）
+        self._write_queue: list[tuple] = []
+        self._write_lock   = threading.Lock()
+        self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
+        self._writer_thread.start()
 
-    def _get_conn(self) -> pymysql.Connection | None:
-        """懒加载连接，断了自动重连；不可用时返回 None"""
+    # ── PostgreSQL ───────────────────────────────────
+
+    def _get_conn(self) -> psycopg2.extensions.connection | None:
         if not self._db_ok:
             return None
-        if self._conn is None or not self._conn.open:
-            # Railway 内置数据库直接用 DATABASE_URL
-            db_url = os.getenv("DATABASE_URL", "")
-            if db_url.startswith("mysql://"):
-                host, port, user, password, database = _parse_db_url(db_url)
-            else:
-                host, port, user, password, database = (
-                    MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE
-                )
-            self._conn = pymysql.connect(
-                host     = host,
-                port     = port,
-                user     = user,
-                password = password,
-                database = database,
-                charset  = "utf8mb4",
-                cursorclass = DictCursor,
-                autocommit  = False,
-            )
+        if self._conn is None or self._conn.closed:
+            try:
+                self._conn = psycopg2.connect(DATABASE_URL)
+                log.info("PostgreSQL 连接已建立")
+            except Exception as e:
+                log.warning("PostgreSQL 连接失败: %s", e)
+                self._db_ok = False
+                return None
         return self._conn
 
-    # ── 数据库初始化 ──────────────────────────────────
-
     def _init_db(self):
-        try:
-            db_url = os.getenv("DATABASE_URL", "")
-            if db_url.startswith("mysql://"):
-                db_host, db_port, db_user, db_pass, db_name = _parse_db_url(db_url)
-                # 先建库（如果不存在）
-                tmp_conn = pymysql.connect(
-                    host     = db_host,
-                    port     = db_port,
-                    user     = db_user,
-                    password = db_pass,
-                    charset  = "utf8mb4",
-                )
-                with tmp_conn.cursor() as cur:
-                    cur.execute(
-                        f"CREATE DATABASE IF NOT EXISTS `{db_name}` "
-                        "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-                    )
-                tmp_conn.close()
-                log.info("MySQL 数据库 '%s' 就绪", db_name)
-            else:
-                # 本地 / Hostinger
-                tmp_conn = pymysql.connect(
-                    host     = MYSQL_HOST,
-                    port     = MYSQL_PORT,
-                    user     = MYSQL_USER,
-                    password = MYSQL_PASSWORD,
-                    charset  = "utf8mb4",
-                )
-                with tmp_conn.cursor() as cur:
-                    cur.execute(
-                        f"CREATE DATABASE IF NOT EXISTS `{MYSQL_DATABASE}` "
-                        "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
-                    )
-                tmp_conn.close()
-                log.info("MySQL 数据库 '%s' 就绪", MYSQL_DATABASE)
+        if not DATABASE_URL:
+            log.warning("未设置 DATABASE_URL，降级为纯内存模式")
+            self._db_ok = False
+            return
 
-            conn = self._get_conn()
+        conn = self._get_conn()
+        if conn is None:
+            self._db_ok = False
+            return
+
+        try:
             with conn.cursor() as cur:
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS price_history (
-                        id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                        symbol      VARCHAR(32) NOT NULL,
-                        price       DECIMAL(16,4) NOT NULL,
-                        volume      BIGINT UNSIGNED NOT NULL,
-                        datetime    DATETIME(3) NOT NULL,
-                        created_at  DATETIME(3) NOT NULL DEFAULT NOW(3),
-                        INDEX idx_symbol_time (symbol, datetime DESC)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                        id         BIGSERIAL PRIMARY KEY,
+                        symbol     TEXT        NOT NULL,
+                        price      NUMERIC(16,4) NOT NULL,
+                        volume     BIGINT      NOT NULL,
+                        dt         TIMESTAMPTZ NOT NULL,
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                    )
+                """)
+                cur.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_price_history_lookup
+                    ON price_history (symbol, dt DESC)
                 """)
             conn.commit()
-            log.info("MySQL price_history 表初始化完成")
-
+            log.info("PostgreSQL price_history 表就绪（原始 5 分钟数据）")
         except Exception as e:
-            log.warning("MySQL 初始化失败（降级为纯内存模式）: %s", e)
+            log.warning("PostgreSQL 初始化失败: %s", e)
             self._db_ok = False
 
-    # ── 异步写入线程 ─────────────────────────────────
+    # ── 后台写入 ─────────────────────────────────────
 
     def _writer_loop(self):
-        """后台线程：批量从队列取数据，批量 INSERT MySQL"""
-        batch: list[tuple] = []
-        batch_size = 50
-        last_flush = time.time()
-
+        """每 2 秒批量写入 + 顺带超量清理"""
         while True:
-            try:
-                item = self._write_queue.get(timeout=0.5)
-                batch.append(item)
-                # 凑够 batch_size 或超过 2 秒就刷一次
-                if len(batch) >= batch_size or (time.time() - last_flush) > 2.0:
-                    self._flush(batch)
-                    batch.clear()
-                    last_flush = time.time()
-            except Empty:
-                if batch:
-                    self._flush(batch)
-                    batch.clear()
-                    last_flush = time.time()
+            time.sleep(2.0)
+            with self._write_lock:
+                if not self._write_queue:
+                    continue
+                batch = list(self._write_queue)
+                self._write_queue.clear()
+
+            self._flush(batch)
+            self._cleanup_if_needed()
 
     def _flush(self, batch: list[tuple]):
         if not batch or not self._db_ok:
@@ -191,37 +127,73 @@ class PriceStore:
         try:
             conn = self._get_conn()
             with conn.cursor() as cur:
-                cur.executemany(
-                    """INSERT INTO price_history
-                       (symbol, price, volume, datetime, created_at)
-                       VALUES (%s, %s, %s, %s, %s)""",
-                    batch,
+                from psycopg2.extras import execute_values
+                execute_values(
+                    cur,
+                    """INSERT INTO price_history (symbol, price, volume, dt, created_at)
+                       VALUES %s""",
+                    [
+                        (sym, price, vol, dt, datetime.now(timezone.utc))
+                        for sym, price, vol, dt in batch
+                    ],
                 )
             conn.commit()
-            log.debug("MySQL 批量写入 %d 条", len(batch))
+            log.debug("PG 写入 %d 条", len(batch))
         except Exception as e:
-            log.warning("MySQL 批量写入失败: %s", e)
+            log.warning("PG 写入失败: %s", e)
             try:
-                if self._conn:
-                    self._conn.rollback()
+                conn.rollback()
             except Exception:
                 pass
 
-    # ── 写入 ──────────────────────────────────────────
+    def _cleanup_if_needed(self):
+        """超量时清理最老的 5min 记录"""
+        if not self._db_ok:
+            return
+        try:
+            conn = self._get_conn()
+            with conn.cursor() as cur:
+                for sym in self._symbols:
+                    cur.execute(
+                        "SELECT COUNT(*) FROM price_history WHERE symbol=%s",
+                        (sym,),
+                    )
+                    count = cur.fetchone()[0]
+                    if count > KEEP_RECORDS:
+                        excess = count - KEEP_RECORDS
+                        cur.execute(
+                            """DELETE FROM price_history
+                               WHERE id IN (
+                                   SELECT id FROM price_history
+                                   WHERE symbol=%s
+                                   ORDER BY dt ASC
+                                   LIMIT %s
+                               )""",
+                            (sym, excess),
+                        )
+                        log.info(
+                            "PG 清理 %s 超量 %d 条，剩余 %d 条",
+                            sym, excess, count - excess,
+                        )
+                conn.commit()
+        except Exception as e:
+            log.warning("PG 清理失败: %s", e)
+
+    # ── 写入（主线程调用）───────────────────────────────
 
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
-        # 采样间隔控制：日常模式每 interval 秒才更新一次
         now = time.time()
+
+        # 日常模式：按 SAMPLE_INTERVAL_SEC 采样
         if self._interval > 0 and (now - self._last_sample_time) < self._interval:
-            return  # 未到采样间隔，跳过
+            return
 
         with self._lock:
-            # 重新检查（加锁后）
             if self._interval > 0 and (time.time() - self._last_sample_time) < self._interval:
                 return
+            self._last_sample_time = time.time()
 
-            self._last_sample_time = now
             prev_price = self._prev.get(symbol)
             change     = None
             change_pct = None
@@ -230,51 +202,55 @@ class PriceStore:
                 change_pct = round(change / prev_price * 100, 4)
 
             record = {
-                "symbol":        symbol,
-                "instrument_id": instrument_id,
-                "price":         _nan(price),
-                "volume":        int(volume),
-                "datetime":      dt,
-                "change":        change,
-                "change_pct":    change_pct,
-                "is_trading":    _is_trading_time(),
+                "symbol":         symbol,
+                "instrument_id":  instrument_id,
+                "price":          _nan(price),
+                "volume":         int(volume),
+                "dt":             dt,
+                "change":         change,
+                "change_pct":     change_pct,
+                "is_trading":     _is_trading_time(),
             }
             self._latest[symbol] = record
             self._prev[symbol]   = _nan(price)
-            if symbol not in self._symbols:
-                self._symbols.append(symbol)
 
-            # 异步写 MySQL（主线程不阻塞）
-            self._write_queue.put((
-                symbol,
-                _nan(price),
-                int(volume),
-                dt,
-                datetime.now(timezone.utc).isoformat(),
-            ))
+            # 竞标模式 → 不落库
+            if self._mode == "竞标":
+                return
+
+            # 日常模式 → 原始 5min 数据入队列
+            dt_parsed = self._parse_dt(dt)
+            with self._write_lock:
+                self._write_queue.append((symbol, _nan(price), int(volume), dt_parsed))
+
+    def _parse_dt(self, dt_str: str) -> datetime:
+        if not dt_str:
+            return datetime.now(timezone.utc)
+        try:
+            return datetime.strptime(dt_str[:23], "%Y-%m-%d %H:%M:%S.%f").replace(
+                tzinfo=timezone.utc
+            )
+        except Exception:
+            return datetime.now(timezone.utc)
 
     # ── 模式控制 ──────────────────────────────────────
 
     def set_mode(self, mode: str) -> dict:
-        """设置采样模式: 竞标(实时) 或 日常(5分钟)"""
         if mode not in ("竞标", "日常"):
             return {"ok": False, "error": "无效模式，可用: 竞标, 日常"}
-
         with self._lock:
             self._mode = mode
-            self._interval = 0 if mode == "竞标" else 300  # 0=实时, 300=5分钟
-            self._last_sample_time = 0.0  # 切换模式后立即允许更新
+            self._interval = 0 if mode == "竞标" else SAMPLE_INTERVAL_SEC
+            self._last_sample_time = 0.0
             log.info("采样模式切换: %s (间隔 %d 秒)", mode, self._interval)
-
-        return {"ok": True, "mode": mode, "interval": self._interval}
+        return {"ok": True, "mode": self._mode, "interval": self._interval}
 
     @property
     def mode_info(self) -> dict:
-        """获取当前模式信息"""
         with self._lock:
             return {"mode": self._mode, "interval": self._interval}
 
-    # ── 读取 ──────────────────────────────────────────
+    # ── 读取 ─────────────────────────────────────────
 
     @property
     def latest(self) -> dict[str, dict]:
@@ -287,40 +263,76 @@ class PriceStore:
             return list(self._symbols)
 
     def get_history(self, symbol: str,
-                     minutes: int = 60,
-                     limit: int = 200) -> list[dict]:
+                    interval_: str = "5min",
+                    limit: int = 200) -> list[dict]:
+        """
+        从 PG 读取历史数据，支持查询时聚合
+        interval_: '5min' | '15min' | '1hour'
+        5min:    直接返回原始数据
+        15min:   每 3 条原始数据聚合为 1 条（3 × 5min = 15min）
+        1hour:   每 12 条原始数据聚合为 1 条（12 × 5min = 60min）
+        """
         if not self._db_ok:
             return []
-        since = datetime.now(timezone.utc) - timedelta(minutes=minutes)
         try:
             conn = self._get_conn()
             with conn.cursor() as cur:
                 cur.execute(
-                    """
-                    SELECT symbol, price, volume, datetime
-                    FROM price_history
-                    WHERE symbol = %s AND datetime >= %s
-                    ORDER BY datetime DESC
-                    LIMIT %s
-                    """,
-                    (symbol, since, limit),
+                    """SELECT symbol, price, volume, dt
+                       FROM price_history
+                       WHERE symbol = %s
+                       ORDER BY dt DESC
+                       LIMIT %s""",
+                    (symbol, limit * 12),   # 多取些，聚合后数量才够
                 )
-                rows = cur.fetchall()
-            return [
-                {
-                    "symbol":   r["symbol"],
-                    "price":    float(r["price"]),
-                    "volume":   int(r["volume"]),
-                    "datetime": r["datetime"].strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-                }
-                for r in reversed(rows)
-            ]
+                rows = list(cur.fetchall())
+
+            if not rows:
+                return []
+
+            # 5min：直接返回
+            if interval_ == "5min":
+                return self._format_rows(rows, limit)
+
+            # 聚合
+            step = 3 if interval_ == "15min" else 12
+            groups = [rows[i:i+step] for i in range(0, len(rows), step)]
+
+            aggregated = []
+            for group in groups:
+                if not group:
+                    continue
+                prices  = [float(r[1]) for r in group if r[1] is not None]
+                volumes = [int(r[2])   for r in group if r[2] is not None]
+                if not prices:
+                    continue
+                last_row = group[0]  # 取最新那条的时间戳
+                aggregated.append((
+                    last_row[0],
+                    round(sum(prices) / len(prices), 4),   # 平均价
+                    max(volumes) if volumes else 0,         # 最大成交量
+                    last_row[3],                            # 最新时间戳
+                ))
+
+            return self._format_rows(aggregated, limit)
+
         except Exception as e:
-            log.warning("MySQL 查询失败: %s", e)
+            log.warning("PG 查询失败: %s", e)
             return []
 
+    def _format_rows(self, rows: list, limit: int) -> list[dict]:
+        return [
+            {
+                "symbol":   r[0],
+                "price":    float(r[1]),
+                "volume":   int(r[2]),
+                "datetime": r[3].strftime("%Y-%m-%d %H:%M:%S") if hasattr(r[3], 'strftime') else str(r[3]),
+            }
+            for r in reversed(rows[:limit])
+        ]
+
     def close(self):
-        if self._conn:
+        if self._conn and not self._conn.closed:
             try:
                 self._conn.close()
             except Exception:
