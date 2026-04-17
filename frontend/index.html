@@ -27,40 +27,21 @@
       padding: 1.5rem 1rem;
     }
 
-    header {
-      text-align: center;
-      margin-bottom: 1.5rem;
-    }
+    header { text-align: center; margin-bottom: 1.5rem; }
+    header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
+    header .subtitle { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
 
-    header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-    }
+    /* ── 通用容器 ─────────────────────────────── */
+    .view { max-width: 960px; margin: 0 auto; }
 
-    header .subtitle {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-top: 0.3rem;
-    }
-
-    /* ── 竞标模式布局 ──────────────────────── */
-    #jingbiao-view {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    /* 价格卡片 */
-    .grid {
+    /* ── 价格卡片 ─────────────────────────────── */
+    .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1rem;
       margin-bottom: 1rem;
     }
-
-    @media (max-width: 500px) {
-      .grid { grid-template-columns: 1fr; }
-    }
+    @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
 
     .card {
       background: var(--card);
@@ -68,71 +49,43 @@
       border-radius: 10px;
       padding: 1.2rem 1.4rem;
     }
-
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin-bottom: 0.8rem;
     }
-
     .card-title {
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--muted);
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
     }
-
     .card-symbol {
-      font-size: 0.65rem;
-      color: var(--muted);
-      background: var(--bg);
-      padding: 0.2rem 0.45rem;
-      border-radius: 4px;
+      font-size: 0.65rem; color: var(--muted);
+      background: var(--bg); padding: 0.2rem 0.45rem; border-radius: 4px;
     }
-
-    .price {
-      font-size: 2.2rem;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 0.25rem;
-    }
-
+    .price { font-size: 2.2rem; font-weight: 700; line-height: 1; margin-bottom: 0.25rem; }
     .price.pt { color: var(--pt-color); }
     .price.pd { color: var(--pd-color); }
-
     .unit { font-size: 0.8rem; color: var(--muted); font-weight: 400; }
-
     .meta { font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; }
     .meta span { color: var(--text); }
-
     .change-tag {
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 0.18rem 0.5rem;
-      border-radius: 5px;
-      display: inline-block;
-      margin-top: 0.4rem;
+      font-size: 0.78rem; font-weight: 600;
+      padding: 0.18rem 0.5rem; border-radius: 5px;
+      display: inline-block; margin-top: 0.4rem;
     }
-
-    .change-tag.up   { color: var(--up); background: rgba(34,197,94,0.12); }
-    .change-tag.dn   { color: var(--dn); background: rgba(239,68,68,0.12); }
+    .change-tag.up   { color: var(--up);   background: rgba(34,197,94,0.12); }
+    .change-tag.dn   { color: var(--dn);   background: rgba(239,68,68,0.12); }
     .change-tag.flat { color: var(--muted); background: rgba(107,114,128,0.12); }
-
     .session-tag {
-      font-size: 0.68rem;
-      font-weight: 600;
-      padding: .18rem .5rem;
-      border-radius: 5px;
-      display: inline-block;
-      margin-top: 0.4rem;
+      font-size: 0.68rem; font-weight: 600;
+      padding: .18rem .5rem; border-radius: 5px;
+      display: inline-block; margin-top: 0.4rem;
     }
-
     .session-tag.live   { color: var(--up); background: rgba(34,197,94,0.12); }
     .session-tag.closed { color: var(--dn); background: rgba(239,68,68,0.12); }
 
-    /* ── 竞标模式 K 线图 ────────────────────── */
+    /* ── 图表卡片 ─────────────────────────────── */
     .chart-card {
       background: var(--card);
       border: 1px solid var(--border);
@@ -140,630 +93,510 @@
       padding: 1rem 1.2rem;
       margin-bottom: 1rem;
     }
-
     .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      display: flex; justify-content: space-between; align-items: center;
       margin-bottom: 0.7rem;
     }
-
     .chart-title {
-      font-size: 0.72rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      color: var(--muted);
+      font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+    }
+    .chart-count { font-size: 0.62rem; color: var(--muted); }
+
+    /* 竞标模式：两张图并排（桌面），手机竖排 */
+    .charts-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 640px) { .charts-2col { grid-template-columns: 1fr; } }
+
+    /* 日常模式：2列×3行 */
+    .charts-6grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 640px) { .charts-6grid { grid-template-columns: 1fr; } }
+
+    /* 图表高度自适应 */
+    .chart-canvas { width: 100% !important; height: 240px !important; }
+    @media (min-width: 640px)  { .chart-canvas { height: 280px !important; } }
+    @media (min-width: 960px)  { .chart-canvas { height: 320px !important; } }
+
+    .chart-loading {
+      height: 100px; display: flex; align-items: center;
+      justify-content: center; color: var(--muted); font-size: 0.75rem;
     }
 
-    .chart-canvas {
-      width: 100% !important;
-      height: 260px !important;
-    }
-
-    @media (min-width: 640px) {
-      .chart-canvas { height: 320px !important; }
-    }
-
-    @media (min-width: 960px) {
-      .chart-canvas { height: 400px !important; }
-    }
-
-    /* ── 模式切换按钮 ───────────────────────── */
-    .mode-interval {
-      font-size: 0.68rem;
-      color: var(--muted);
-      text-align: center;
-      margin-bottom: 0.4rem;
-    }
-
-    .mode-bar {
-      display: flex;
-      justify-content: center;
-      gap: 0.4rem;
-      margin-bottom: 1.5rem;
-    }
-
+    /* ── 模式切换 ─────────────────────────────── */
+    .mode-interval { font-size: 0.68rem; color: var(--muted); text-align: center; margin-bottom: 0.4rem; }
+    .mode-bar { display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 1.5rem; }
     .mode-btn {
-      font-family: inherit;
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 0.45rem 0.9rem;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      background: var(--card);
-      color: var(--muted);
-      cursor: pointer;
-      transition: all 0.2s;
+      font-family: inherit; font-size: 0.72rem; font-weight: 600;
+      padding: 0.45rem 0.9rem; border: 1px solid var(--border);
+      border-radius: 6px; background: var(--card); color: var(--muted);
+      cursor: pointer; transition: all 0.2s;
     }
-
     .mode-btn:hover { border-color: var(--text); color: var(--text); }
     .mode-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-    /* ── 日常模式三图（默认隐藏）────────────── */
-    #richang-view {
-      display: none;
-    }
-
-    .charts-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .chart-count {
-      font-size: 0.62rem;
-      color: var(--muted);
-    }
-
-    .chart-loading {
-      height: 120px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 0.75rem;
-    }
-
-    /* ── 状态栏 ─────────────────────────────── */
+    /* ── 状态栏 ───────────────────────────────── */
     .status-bar {
-      max-width: 900px;
-      margin: 1.2rem auto 0;
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.68rem;
-      color: var(--muted);
+      max-width: 960px; margin: 1.2rem auto 0;
+      display: flex; justify-content: space-between;
+      font-size: 0.68rem; color: var(--muted);
     }
-
     .status-dot {
-      display: inline-block;
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; margin-right: 4px; vertical-align: middle;
     }
-
     .status-dot.live { background: var(--up); box-shadow: 0 0 6px var(--up); animation: pulse 2s infinite; }
     .status-dot.err  { background: var(--dn); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50%       { opacity: 0.4; }
+    #richang-view { display: none; }
+
+    /* 日常模式分组标题 */
+    .sym-label {
+      font-size: 0.78rem; font-weight: 700;
+      letter-spacing: 0.08em; margin: 0.8rem 0 0.4rem;
+      padding-left: 0.2rem;
     }
+    .sym-label.pt { color: var(--pt-color); }
+    .sym-label.pd { color: var(--pd-color); }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>铂金 · 钯金 实时行情</h1>
-    <div class="subtitle">GFEX · KQ.m@GFEX.pt · KQ.m@GFEX.pd</div>
-  </header>
+<header>
+  <h1>铂金 · 钯金 实时行情</h1>
+  <div class="subtitle">GFEX · KQ.m@GFEX.pt · KQ.m@GFEX.pd</div>
+</header>
 
-  <!-- 采样模式切换 -->
-  <div class="mode-interval" id="mode-interval"></div>
-  <div class="mode-bar">
-    <button class="mode-btn active" id="btn-jingbiao" onclick="setMode('竞标')">竞标模式</button>
-    <button class="mode-btn" id="btn-richang" onclick="setMode('日常')">日常模式</button>
+<div class="mode-interval" id="mode-interval"></div>
+<div class="mode-bar">
+  <button class="mode-btn active" id="btn-jingbiao" onclick="setMode('竞标')">竞标模式</button>
+  <button class="mode-btn"        id="btn-richang"  onclick="setMode('日常')">日常模式</button>
+</div>
+
+<!-- ══ 竞标模式 ══════════════════════════════════════ -->
+<div id="jingbiao-view" class="view">
+
+  <!-- 价格卡片 -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">铂金 Platinum</span>
+        <span class="card-symbol">GFEX.pt</span>
+      </div>
+      <div class="price pt" id="pt-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">涨跌: <span id="pt-change">--</span></div>
+      <div class="meta">成交量: <span id="pt-vol">--</span></div>
+      <div id="pt-change-tag" class="change-tag flat">--</div>
+      <div id="pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">钯金 Palladium</span>
+        <span class="card-symbol">GFEX.pd</span>
+      </div>
+      <div class="price pd" id="pd-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">涨跌: <span id="pd-change">--</span></div>
+      <div class="meta">成交量: <span id="pd-vol">--</span></div>
+      <div id="pd-change-tag" class="change-tag flat">--</div>
+      <div id="pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+    </div>
   </div>
 
-  <!-- ══ 竞标模式 ══════════════════════════════════ -->
-  <div id="jingbiao-view">
-
-    <!-- 实时价格卡片 -->
-    <div class="grid">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">铂金 Platinum</span>
-          <span class="card-symbol">GFEX.pt</span>
-        </div>
-        <div class="price pt" id="pt-price">--<span class="unit"> 元/克</span></div>
-        <div class="meta">涨跌: <span id="pt-change">--</span></div>
-        <div class="meta">成交量: <span id="pt-vol">--</span></div>
-        <div id="pt-change-tag" class="change-tag flat">--</div>
-        <div id="pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">钯金 Palladium</span>
-          <span class="card-symbol">GFEX.pd</span>
-        </div>
-        <div class="price pd" id="pd-price">--<span class="unit"> 元/克</span></div>
-        <div class="meta">涨跌: <span id="pd-change">--</span></div>
-        <div class="meta">成交量: <span id="pd-vol">--</span></div>
-        <div id="pd-change-tag" class="change-tag flat">--</div>
-        <div id="pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
-      </div>
-    </div>
-
-    <!-- 实时 K 线图（2s 轮询） -->
+  <!-- 竞标模式：铂金 / 钯金 各一张实时走势图 -->
+  <div class="charts-2col">
     <div class="chart-card">
       <div class="chart-header">
-        <span class="chart-title">实时走势 · 竞标模式</span>
-        <span class="chart-count" id="jingbiao-count">0 条</span>
+        <span class="chart-title" style="color:var(--pt-color)">铂金 PT · 实时走势</span>
+        <span class="chart-count" id="jb-pt-count">0 条</span>
       </div>
-      <canvas id="jingbiao-chart" class="chart-canvas"></canvas>
+      <canvas id="jb-pt-chart" class="chart-canvas"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title" style="color:var(--pd-color)">钯金 PD · 实时走势</span>
+        <span class="chart-count" id="jb-pd-count">0 条</span>
+      </div>
+      <canvas id="jb-pd-chart" class="chart-canvas"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 日常模式 ══════════════════════════════════════ -->
+<div id="richang-view" class="view">
+
+  <!-- 价格卡片（5min 轮询） -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">铂金 Platinum</span>
+        <span class="card-symbol">GFEX.pt</span>
+      </div>
+      <div class="price pt" id="r-pt-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">涨跌: <span id="r-pt-change">--</span></div>
+      <div class="meta">成交量: <span id="r-pt-vol">--</span></div>
+      <div id="r-pt-change-tag" class="change-tag flat">--</div>
+      <div id="r-pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">钯金 Palladium</span>
+        <span class="card-symbol">GFEX.pd</span>
+      </div>
+      <div class="price pd" id="r-pd-price">--<span class="unit"> 元/克</span></div>
+      <div class="meta">涨跌: <span id="r-pd-change">--</span></div>
+      <div class="meta">成交量: <span id="r-pd-vol">--</span></div>
+      <div id="r-pd-change-tag" class="change-tag flat">--</div>
+      <div id="r-pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
     </div>
   </div>
 
-  <!-- ══ 日常模式 ══════════════════════════════════ -->
-  <div id="richang-view">
-
-    <!-- 实时价格卡片（2s 轮询刷新） -->
-    <div class="grid">
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">铂金 Platinum</span>
-          <span class="card-symbol">GFEX.pt</span>
-        </div>
-        <div class="price pt" id="r-pt-price">--<span class="unit"> 元/克</span></div>
-        <div class="meta">涨跌: <span id="r-pt-change">--</span></div>
-        <div class="meta">成交量: <span id="r-pt-vol">--</span></div>
-        <div id="r-pt-change-tag" class="change-tag flat">--</div>
-        <div id="r-pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+  <!-- 铂金 3 张 -->
+  <div class="sym-label pt">▸ 铂金 Platinum</div>
+  <div class="charts-6grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PT · 5 分钟</span>
+        <span class="chart-count" id="rc-pt-5min-count">--</span>
       </div>
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">钯金 Palladium</span>
-          <span class="card-symbol">GFEX.pd</span>
-        </div>
-        <div class="price pd" id="r-pd-price">--<span class="unit"> 元/克</span></div>
-        <div class="meta">涨跌: <span id="r-pd-change">--</span></div>
-        <div class="meta">成交量: <span id="r-pd-vol">--</span></div>
-        <div id="r-pd-change-tag" class="change-tag flat">--</div>
-        <div id="r-pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
-      </div>
+      <div class="chart-loading" id="rc-pt-5min-loading">加载中...</div>
+      <canvas id="rc-pt-5min" class="chart-canvas" style="display:none"></canvas>
     </div>
-
-    <div class="charts-grid">
-      <div class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">📈 5 分钟走势</span>
-          <span class="chart-count" id="count-5min">--</span>
-        </div>
-        <div class="chart-loading" id="loading-5min">加载中...</div>
-        <canvas id="chart-5min" class="chart-canvas" style="display:none"></canvas>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PT · 15 分钟</span>
+        <span class="chart-count" id="rc-pt-15min-count">--</span>
       </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">📊 15 分钟走势</span>
-          <span class="chart-count" id="count-15min">--</span>
-        </div>
-        <div class="chart-loading" id="loading-15min">加载中...</div>
-        <canvas id="chart-15min" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-loading" id="rc-pt-15min-loading">加载中...</div>
+      <canvas id="rc-pt-15min" class="chart-canvas" style="display:none"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PT · 1 小时</span>
+        <span class="chart-count" id="rc-pt-1hour-count">--</span>
       </div>
-      <div class="chart-card">
-        <div class="chart-header">
-          <span class="chart-title">📉 1 小时走势</span>
-          <span class="chart-count" id="count-1hour">--</span>
-        </div>
-        <div class="chart-loading" id="loading-1hour">加载中...</div>
-        <canvas id="chart-1hour" class="chart-canvas" style="display:none"></canvas>
-      </div>
+      <div class="chart-loading" id="rc-pt-1hour-loading">加载中...</div>
+      <canvas id="rc-pt-1hour" class="chart-canvas" style="display:none"></canvas>
     </div>
   </div>
 
-  <div class="status-bar">
-    <span id="status-text"><span class="status-dot live"></span>连接中...</span>
-    <span id="last-update">--</span>
+  <!-- 钯金 3 张 -->
+  <div class="sym-label pd">▸ 钯金 Palladium</div>
+  <div class="charts-6grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PD · 5 分钟</span>
+        <span class="chart-count" id="rc-pd-5min-count">--</span>
+      </div>
+      <div class="chart-loading" id="rc-pd-5min-loading">加载中...</div>
+      <canvas id="rc-pd-5min" class="chart-canvas" style="display:none"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PD · 15 分钟</span>
+        <span class="chart-count" id="rc-pd-15min-count">--</span>
+      </div>
+      <div class="chart-loading" id="rc-pd-15min-loading">加载中...</div>
+      <canvas id="rc-pd-15min" class="chart-canvas" style="display:none"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">PD · 1 小时</span>
+        <span class="chart-count" id="rc-pd-1hour-count">--</span>
+      </div>
+      <div class="chart-loading" id="rc-pd-1hour-loading">加载中...</div>
+      <canvas id="rc-pd-1hour" class="chart-canvas" style="display:none"></canvas>
+    </div>
   </div>
+</div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script>
-    const API = window.location.origin;
-    const SYMBOLS = ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"];
+<div class="status-bar">
+  <span id="status-text"><span class="status-dot live"></span>连接中...</span>
+  <span id="last-update">--</span>
+</div>
 
-    // ── 竞标模式实时 K 线图 ───────────────────────────
-    const MAX_PTS = 80;  // 内存里最多存几条
-    const jingbiao_buf = [];  // [{t, pt, pd}]
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const API     = window.location.origin;
+const MAX_PTS = 80;
 
-    let jingbiaoChart = null;
+// ── 竞标模式：铂金/钯金各自缓冲 ──────────────────────
+const jbBuf = { pt: [], pd: [] };
+const jbCharts = { pt: null, pd: null };
 
-    function initJingbiaoChart() {
-      const ctx = document.getElementById("jingbiao-chart").getContext("2d");
-      jingbiaoChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            {
-              label: "铂金 PT",
-              data: [],
-              borderColor: "#f59e0b",
-              backgroundColor: "rgba(245,158,11,0.06)",
-              fill: true,
-              tension: 0.35,
-              borderWidth: 1.5,
-              pointRadius: 0,
-            },
-            {
-              label: "钯金 PD",
-              data: [],
-              borderColor: "#818cf8",
-              backgroundColor: "rgba(129,140,248,0.06)",
-              fill: true,
-              tension: 0.35,
-              borderWidth: 1.5,
-              pointRadius: 0,
-            },
-          ],
+function makeLineChart(ctx, color, label) {
+  return new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label,
+        data: [],
+        borderColor: color,
+        backgroundColor: color.replace(")", ",0.07)").replace("rgb", "rgba"),
+        fill: true,
+        tension: 0.35,
+        borderWidth: 1.8,
+        pointRadius: 0,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: {
+          grid: { color: "rgba(45,49,72,0.5)" },
+          ticks: { color: "#6b7280", maxTicksLimit: 8, font: { size: 10 }, maxRotation: 0 },
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          interaction: { mode: "index", intersect: false },
-          scales: {
-            x: {
-              grid: { color: "rgba(45,49,72,0.5)" },
-              ticks: {
-                color: "#6b7280",
-                maxTicksLimit: 8,
-                font: { size: 10 },
-                maxRotation: 0,
-              },
-            },
-            y: {
-              grid: { color: "rgba(45,49,72,0.5)" },
-              ticks: {
-                color: "#6b7280",
-                font: { size: 10 },
-                callback: v => v.toFixed(1),
-              },
-            },
-          },
-          plugins: {
-            legend: {
-              display: true,
-              labels: { color: "#9ca3af", font: { size: 11 } },
-            },
-            tooltip: {
-              backgroundColor: "#1a1d27",
-              borderColor: "#2d3148",
-              borderWidth: 1,
-              titleColor: "#e2e4ea",
-              bodyColor: "#9ca3af",
-            },
-          },
+        y: {
+          grid: { color: "rgba(45,49,72,0.5)" },
+          ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(1) },
         },
-      });
-    }
-
-    // ── 日常模式历史图表 ─────────────────────────────
-    function makeHistoryChart(ctx, label, borderColor) {
-      return new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            { label: "铂金 PT", data: [], borderColor: "#f59e0b",
-              backgroundColor: "rgba(245,158,11,0.06)", fill: true,
-              tension: 0.35, borderWidth: 1.5, pointRadius: 0 },
-            { label: "钯金 PD", data: [], borderColor: "#818cf8",
-              backgroundColor: "rgba(129,140,248,0.06)", fill: true,
-              tension: 0.35, borderWidth: 1.5, pointRadius: 0 },
-          ],
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#1a1d27", borderColor: "#2d3148", borderWidth: 1,
+          titleColor: "#e2e4ea", bodyColor: "#9ca3af",
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          interaction: { mode: "index", intersect: false },
-          scales: {
-            x: { grid: { color: "rgba(45,49,72,0.5)" },
-                ticks: { color: "#6b7280", maxTicksLimit: 6, font: { size: 10 }, maxRotation: 0 } },
-            y: { grid: { color: "rgba(45,49,72,0.5)" },
-                ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(1) } },
-          },
-          plugins: {
-            legend: {
-              display: true,
-              labels: { color: "#9ca3af", font: { size: 11 } },
-            },
-            tooltip: { backgroundColor: "#1a1d27", borderColor: "#2d3148", borderWidth: 1,
-                       titleColor: "#e2e4ea", bodyColor: "#9ca3af" },
-          },
-        },
-      });
+      },
+    },
+  });
+}
+
+function initJbCharts() {
+  if (!jbCharts.pt)
+    jbCharts.pt = makeLineChart(
+      document.getElementById("jb-pt-chart").getContext("2d"),
+      "#f59e0b", "铂金 PT"
+    );
+  if (!jbCharts.pd)
+    jbCharts.pd = makeLineChart(
+      document.getElementById("jb-pd-chart").getContext("2d"),
+      "#818cf8", "钯金 PD"
+    );
+}
+
+function pushJbBuf(sym, price, t) {
+  const key = sym.includes(".pt") ? "pt" : "pd";
+  jbBuf[key].push({ t, price });
+  if (jbBuf[key].length > MAX_PTS) jbBuf[key].shift();
+}
+
+function refreshJbChart(key) {
+  const c = jbCharts[key];
+  if (!c) return;
+  const buf = jbBuf[key];
+  c.data.labels = buf.map(b =>
+    `${String(b.t.getHours()).padStart(2,"0")}:${String(b.t.getMinutes()).padStart(2,"0")}:${String(b.t.getSeconds()).padStart(2,"0")}`
+  );
+  c.data.datasets[0].data = buf.map(b => b.price);
+  c.update("none");
+  document.getElementById(`jb-${key}-count`).textContent = `${buf.length} 条`;
+}
+
+// ── 日常模式：6 张独立图 ──────────────────────────────
+const rcCharts = {};  // key: "pt-5min" / "pt-15min" / "pt-1hour" / "pd-..."
+
+function makeRcChart(canvasId, color) {
+  return makeLineChart(
+    document.getElementById(canvasId).getContext("2d"),
+    color, ""
+  );
+}
+
+function initRcCharts() {
+  const specs = [
+    ["pt", "5min",  "#f59e0b"],
+    ["pt", "15min", "#f59e0b"],
+    ["pt", "1hour", "#f59e0b"],
+    ["pd", "5min",  "#818cf8"],
+    ["pd", "15min", "#818cf8"],
+    ["pd", "1hour", "#818cf8"],
+  ];
+  specs.forEach(([sym, iv, color]) => {
+    const key = `${sym}-${iv}`;
+    if (!rcCharts[key])
+      rcCharts[key] = makeRcChart(`rc-${sym}-${iv}`, color);
+  });
+}
+
+async function loadRcChart(sym, interval) {
+  const key     = `${sym}-${interval}`;
+  const canvasId = `rc-${sym}-${interval}`;
+  const loadId   = `rc-${sym}-${interval}-loading`;
+  const countId  = `rc-${sym}-${interval}-count`;
+  const symFull  = `KQ.m@GFEX.${sym}`;
+
+  const canvas  = document.getElementById(canvasId);
+  const loading = document.getElementById(loadId);
+  const c       = rcCharts[key];
+  if (!c) return;
+
+  try {
+    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symFull)}&interval_=${interval}&limit=200`);
+    const json = await res.json();
+    const recs = json.records || [];
+
+    if (recs.length === 0) {
+      loading.textContent = "暂无数据（日常模式下等待数据积累）";
+      return;
     }
 
-    const historyCharts = {};
-    function initHistoryCharts() {
-      if (historyCharts["5min"]) return;
-      historyCharts["5min"]  = makeHistoryChart(
-        document.getElementById("chart-5min").getContext("2d"), "5min", "#f59e0b");
-      historyCharts["15min"] = makeHistoryChart(
-        document.getElementById("chart-15min").getContext("2d"), "15min", "#818cf8");
-      historyCharts["1hour"] = makeHistoryChart(
-        document.getElementById("chart-1hour").getContext("2d"), "1hour", "#22c55e");
+    c.data.labels = recs.map(r => {
+      const d = new Date(r.datetime);
+      return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+    });
+    c.data.datasets[0].data = recs.map(r => r.price);
+    loading.style.display = "none";
+    canvas.style.display  = "block";
+    c.update("none");
+    document.getElementById(countId).textContent = `${recs.length} 条`;
+  } catch (e) {
+    loading.textContent = "加载失败: " + e.message;
+  }
+}
+
+function loadAllRcCharts() {
+  ["pt","pd"].forEach(sym =>
+    ["5min","15min","1hour"].forEach(iv => loadRcChart(sym, iv))
+  );
+}
+
+// ── 工具函数 ──────────────────────────────────────────
+function fmt2(v) { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
+function fmtVol(v) { return v ? Number(v).toLocaleString() : "--"; }
+
+function updatePriceCard(prefix, id, q) {
+  const p = fmt2(q.price);
+  const c = q.change || 0;
+  document.getElementById(`${prefix}${id}-price`).innerHTML = `${p}<span class="unit"> 元/克</span>`;
+  document.getElementById(`${prefix}${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+  document.getElementById(`${prefix}${id}-vol`).textContent = fmtVol(q.volume);
+  const ctag = document.getElementById(`${prefix}${id}-change-tag`);
+  ctag.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+  ctag.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+  const stag = document.getElementById(`${prefix}${id}-session`);
+  stag.className = "session-tag " + (q.is_trading ? "live" : "closed");
+  stag.textContent = q.is_trading ? "● 交易中" : "○ 非交易时段";
+}
+
+// ── 轮询 ──────────────────────────────────────────────
+let currentMode      = "竞标";
+let jingbiaoTimer    = null;
+let richangPriceTimer = null;
+
+async function fetchQuote() {
+  const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return (await res.json()).data || {};
+}
+
+async function pollJingbiao() {
+  try {
+    const data = await fetchQuote();
+    const now  = new Date();
+    const t    = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
+
+    ["KQ.m@GFEX.pt","KQ.m@GFEX.pd"].forEach(sym => {
+      const q  = data[sym]; if (!q) return;
+      const id = sym.includes(".pt") ? "pt" : "pd";
+      updatePriceCard("", id, q);
+      pushJbBuf(sym, q.price, now);
+      refreshJbChart(id);
+    });
+
+    document.getElementById("status-text").innerHTML = '<span class="status-dot live"></span>已连接';
+    document.getElementById("last-update").textContent = "更新: " + t;
+  } catch (e) {
+    document.getElementById("status-text").innerHTML = '<span class="status-dot err"></span>连接异常 ' + e.message;
+  }
+  jingbiaoTimer = setTimeout(pollJingbiao, 2000);
+}
+
+async function pollRichangPrice() {
+  try {
+    const data = await fetchQuote();
+    const now  = new Date();
+    const t    = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    ["KQ.m@GFEX.pt","KQ.m@GFEX.pd"].forEach(sym => {
+      const q  = data[sym]; if (!q) return;
+      const id = sym.includes(".pt") ? "pt" : "pd";
+      updatePriceCard("r-", id, q);
+    });
+    document.getElementById("status-text").innerHTML = '<span class="status-dot live"></span>已连接';
+    document.getElementById("last-update").textContent = "价格更新: " + t;
+  } catch (e) {
+    document.getElementById("status-text").innerHTML = '<span class="status-dot err"></span>连接异常 ' + e.message;
+  }
+  richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
+}
+
+// ── 模式切换 ──────────────────────────────────────────
+async function fetchMode() {
+  try {
+    const res  = await fetch(`${API}/mode`);
+    const json = await res.json();
+    const mode = json.mode || "竞标";
+    currentMode = mode;
+
+    document.getElementById("mode-interval").textContent =
+      mode === "竞标"
+        ? "价格每 2 秒实时更新 · 铂金/钯金独立走势"
+        : `价格每 5 分钟更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
+
+    document.getElementById("btn-jingbiao").className = "mode-btn" + (mode === "竞标" ? " active" : "");
+    document.getElementById("btn-richang").className  = "mode-btn" + (mode === "日常"  ? " active" : "");
+
+    if (mode === "日常") {
+      document.getElementById("jingbiao-view").style.display = "none";
+      document.getElementById("richang-view").style.display  = "block";
+      clearTimeout(jingbiaoTimer);
+      initRcCharts();
+      loadAllRcCharts();
+      pollRichangPrice();
+      if (!window._histTimer)
+        window._histTimer = setInterval(loadAllRcCharts, 5 * 60 * 1000);
+    } else {
+      document.getElementById("jingbiao-view").style.display = "block";
+      document.getElementById("richang-view").style.display  = "none";
+      clearTimeout(richangPriceTimer);
+      if (window._histTimer) { clearInterval(window._histTimer); window._histTimer = null; }
+      initJbCharts();
+      pollJingbiao();
     }
+  } catch (e) {
+    console.error("fetchMode 失败:", e);
+  }
+}
 
-    // ── 模式切换 ────────────────────────────────────
-    async function fetchMode() {
-      try {
-        const res  = await fetch(`${API}/mode`);
-        const json = await res.json();
-        const mode = json.mode || "竞标";
-
-        document.getElementById("mode-interval").textContent =
-          mode === "竞标"
-            ? "价格每 2 秒实时更新 · K线图内存缓冲"
-            : `价格每 2 秒更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
-
-        document.getElementById("btn-jingbiao").className =
-          "mode-btn" + (mode === "竞标" ? " active" : "");
-        document.getElementById("btn-richang").className =
-          "mode-btn" + (mode === "日常" ? " active" : "");
-
-        if (mode === "日常") {
-          document.getElementById("jingbiao-view").style.display = "none";
-          document.getElementById("richang-view").style.display = "block";
-          initHistoryCharts();
-          loadAllHistory();
-          if (!window._histTimer) {
-            window._histTimer = setInterval(loadAllHistory, 5 * 60 * 1000);
-          }
-        } else {
-          document.getElementById("jingbiao-view").style.display = "block";
-          document.getElementById("richang-view").style.display = "none";
-          if (window._histTimer) {
-            clearInterval(window._histTimer);
-            window._histTimer = null;
-          }
-        }
-      } catch (e) {
-        console.error("fetchMode 失败:", e);
-      }
+async function setMode(mode) {
+  try {
+    const fd = new FormData();
+    fd.append("mode", mode);
+    const res  = await fetch(`${API}/mode`, { method: "POST", body: fd });
+    const json = await res.json();
+    if (json.ok) {
+      clearTimeout(jingbiaoTimer);
+      clearTimeout(richangPriceTimer);
+      fetchMode();
+    } else {
+      alert("切换失败: " + json.error);
     }
+  } catch (e) {
+    alert("切换失败: " + e.message);
+  }
+}
 
-    async function setMode(mode) {
-      try {
-        const fd = new FormData();
-        fd.append("mode", mode);
-        const res  = await fetch(`${API}/mode`, { method: "POST", body: fd });
-        const json = await res.json();
-        if (json.ok) {
-          fetchMode();
-        } else {
-          alert("切换失败: " + json.error);
-        }
-      } catch (e) {
-        alert("切换失败: " + e.message);
-      }
-    }
-
-    fetchMode();
-
-    // ── 历史数据加载（日常模式）──────────────────────
-    async function loadHistory(interval, chartKey, countId) {
-      const canvas  = document.getElementById(`chart-${chartKey}`);
-      const loading = document.getElementById(`loading-${chartKey}`);
-      const c = historyCharts[chartKey];
-      if (!c) return;
-
-      try {
-        const [ptRes, pdRes] = await Promise.all([
-          fetch(`${API}/history?symbol=KQ.m@GFEX.pt&interval_=${interval}&limit=200`),
-          fetch(`${API}/history?symbol=KQ.m@GFEX.pd&interval_=${interval}&limit=200`),
-        ]);
-        const ptRec = (await ptRes.json()).records || [];
-        const pdRec = (await pdRes.json()).records || [];
-
-        if (ptRec.length === 0 && pdRec.length === 0) {
-          loading.textContent = "暂无数据（请在日常模式下等待数据积累）";
-          return;
-        }
-
-        const labels = ptRec.map(r => {
-          const d = new Date(r.datetime);
-          return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-        });
-
-        c.data.labels = labels;
-        c.data.datasets[0].data = ptRec.map(r => r.price);
-        c.data.datasets[1].data = pdRec.map(r => r.price);
-
-        loading.style.display = "none";
-        canvas.style.display  = "block";
-        c.update("none");
-
-        document.getElementById(countId).textContent =
-          `PT ${ptRec.length} 条 / PD ${pdRec.length} 条`;
-      } catch (e) {
-        loading.textContent = "加载失败: " + e.message;
-      }
-    }
-
-    function loadAllHistory() {
-      loadHistory("5min",  "5min",  "count-5min");
-      loadHistory("15min", "15min", "count-15min");
-      loadHistory("1hour", "1hour", "count-1hour");
-    }
-
-    // ── 轮询：竞标 2s / 日常 5min ────────────────────
-    function fmt2(v) {
-      if (v == null || isNaN(v)) return "--";
-      return Number(v).toFixed(2);
-    }
-
-    function fmtVol(v) {
-      return v ? Number(v).toLocaleString() : "--";
-    }
-
-    let currentMode = "竞标";
-
-    async function fetchQuoteAndUpdatePriceCards() {
-      try {
-        const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        const data  = json.data || {};
-
-        const now = new Date();
-        const t   = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-
-        SYMBOLS.forEach(sym => {
-          const q = data[sym];
-          if (!q) return;
-
-          const isPT = sym.includes(".pt");
-          const id   = isPT ? "pt" : "pd";
-          const p    = fmt2(q.price);
-          const c    = q.change || 0;
-
-          const ctag = (prefix) => {
-            const el = document.getElementById(`${prefix}${id}-change-tag`);
-            el.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-            el.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
-          };
-
-          const stag = (prefix) => {
-            const el = document.getElementById(`${prefix}${id}-session`);
-            if (q.is_trading) {
-              el.className = "session-tag live";
-              el.textContent = "● 交易中";
-            } else {
-              el.className = "session-tag closed";
-              el.textContent = "○ 非交易时段";
-            }
-          };
-
-          // 竞标模式卡片
-          document.getElementById(`${id}-price`).innerHTML  = `${p}<span class="unit"> 元/克</span>`;
-          document.getElementById(`${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
-          document.getElementById(`${id}-vol`).textContent   = fmtVol(q.volume);
-          ctag("");
-          stag("");
-
-          // 日常模式卡片（仅日常模式显示）
-          if (currentMode === "日常") {
-            document.getElementById(`r-${id}-price`).innerHTML  = `${p}<span class="unit"> 元/克</span>`;
-            document.getElementById(`r-${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
-            document.getElementById(`r-${id}-vol`).textContent   = fmtVol(q.volume);
-            ctag("r-");
-            stag("r-");
-          }
-        });
-
-        document.getElementById("status-text").innerHTML =
-          '<span class="status-dot live"></span>已连接';
-        document.getElementById("last-update").textContent = "价格更新: " + t;
-
-      } catch (e) {
-        document.getElementById("status-text").innerHTML =
-          '<span class="status-dot err"></span>连接异常 ' + e.message;
-      }
-    }
-
-    // ── 竞标模式：2s 轮询价格 + K 线图 ────────────────
-    let jingbiaoTimer = null;
-
-    async function pollJingbiao() {
-      await fetchQuoteAndUpdatePriceCards();
-
-      try {
-        const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
-        const json = await res.json();
-        const data  = json.data || {};
-        const now   = new Date();
-        const pt    = data["KQ.m@GFEX.pt"]?.price ?? null;
-        const pd    = data["KQ.m@GFEX.pd"]?.price ?? null;
-
-        if (pt != null || pd != null) {
-          jingbiao_buf.push({ t: now, pt, pd });
-          if (jingbiao_buf.length > MAX_PTS) jingbiao_buf.shift();
-          if (!jingbiaoChart) initJingbiaoChart();
-
-          jingbiaoChart.data.labels    = jingbiao_buf.map(b =>
-            `${String(b.t.getHours()).padStart(2,"0")}:${String(b.t.getMinutes()).padStart(2,"0")}:${String(b.t.getSeconds()).padStart(2,"0")}`
-          );
-          jingbiaoChart.data.datasets[0].data = jingbiao_buf.map(b => b.pt);
-          jingbiaoChart.data.datasets[1].data = jingbiao_buf.map(b => b.pd);
-          jingbiaoChart.update("none");
-
-          document.getElementById("jingbiao-count").textContent = `${jingbiao_buf.length} 条`;
-        }
-      } catch (e) {
-        // ignore — fetchQuoteAndUpdatePriceCards already handles errors
-      }
-
-      jingbiaoTimer = setTimeout(pollJingbiao, 2000);
-    }
-
-    pollJingbiao();
-
-    // ── 日常模式：5min 轮询价格（价格卡片 + 历史图）───
-    let richangPriceTimer = null;
-
-    async function pollRichangPrice() {
-      await fetchQuoteAndUpdatePriceCards();
-      richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
-    }
-
-    // ── 模式切换 ────────────────────────────────────
-    async function fetchMode() {
-      try {
-        const res  = await fetch(`${API}/mode`);
-        const json = await res.json();
-        const mode = json.mode || "竞标";
-        currentMode = mode;
-
-        document.getElementById("mode-interval").textContent =
-          mode === "竞标"
-            ? "价格每 2 秒实时更新 · K线图内存缓冲"
-            : `价格每 5 分钟更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
-
-        document.getElementById("btn-jingbiao").className =
-          "mode-btn" + (mode === "竞标" ? " active" : "");
-        document.getElementById("btn-richang").className =
-          "mode-btn" + (mode === "日常" ? " active" : "");
-
-        if (mode === "日常") {
-          document.getElementById("jingbiao-view").style.display = "none";
-          document.getElementById("richang-view").style.display = "block";
-          clearTimeout(jingbiaoTimer);
-          initHistoryCharts();
-          loadAllHistory();
-          // 立即更新一次价格，再按 5min 轮询
-          fetchQuoteAndUpdatePriceCards();
-          richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
-          if (!window._histTimer) {
-            window._histTimer = setInterval(loadAllHistory, 5 * 60 * 1000);
-          }
-        } else {
-          document.getElementById("jingbiao-view").style.display = "block";
-          document.getElementById("richang-view").style.display = "none";
-          clearTimeout(richangPriceTimer);
-          if (window._histTimer) {
-            clearInterval(window._histTimer);
-            window._histTimer = null;
-          }
-          pollJingbiao();
-        }
-      } catch (e) {
-        console.error("fetchMode 失败:", e);
-      }
-    }
-  </script>
+fetchMode();
+</script>
 </body>
 </html>
