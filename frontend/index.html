@@ -300,6 +300,33 @@
 
   <!-- ══ 日常模式 ══════════════════════════════════ -->
   <div id="richang-view">
+
+    <!-- 实时价格卡片（2s 轮询刷新） -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">铂金 Platinum</span>
+          <span class="card-symbol">GFEX.pt</span>
+        </div>
+        <div class="price pt" id="r-pt-price">--<span class="unit"> 元/克</span></div>
+        <div class="meta">涨跌: <span id="r-pt-change">--</span></div>
+        <div class="meta">成交量: <span id="r-pt-vol">--</span></div>
+        <div id="r-pt-change-tag" class="change-tag flat">--</div>
+        <div id="r-pt-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">钯金 Palladium</span>
+          <span class="card-symbol">GFEX.pd</span>
+        </div>
+        <div class="price pd" id="r-pd-price">--<span class="unit"> 元/克</span></div>
+        <div class="meta">涨跌: <span id="r-pd-change">--</span></div>
+        <div class="meta">成交量: <span id="r-pd-vol">--</span></div>
+        <div id="r-pd-change-tag" class="change-tag flat">--</div>
+        <div id="r-pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
+      </div>
+    </div>
+
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-header">
@@ -471,7 +498,9 @@
         const mode = json.mode || "竞标";
 
         document.getElementById("mode-interval").textContent =
-          mode === "竞标" ? "实时数据 · 每 2 秒更新" : `入库间隔 · 每 ${json.interval / 60} 分钟`;
+          mode === "竞标"
+            ? "价格每 2 秒实时更新 · K线图内存缓冲"
+            : `价格每 2 秒更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
 
         document.getElementById("btn-jingbiao").className =
           "mode-btn" + (mode === "竞标" ? " active" : "");
@@ -596,6 +625,7 @@
           if (isPT) ptPrice = q.price;
           else       pdPrice = q.price;
 
+          // 竞标模式价格卡片
           document.getElementById(`${id}-price`).innerHTML =
             `${p}<span class="unit"> 元/克</span>`;
           document.getElementById(`${id}-change`).textContent =
@@ -614,6 +644,26 @@
           } else {
             stag.className = "session-tag closed";
             stag.textContent = "○ 非交易时段";
+          }
+
+          // 日常模式价格卡片（同样更新）
+          document.getElementById(`r-${id}-price`).innerHTML =
+            `${p}<span class="unit"> 元/克</span>`;
+          document.getElementById(`r-${id}-change`).textContent =
+            `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+          document.getElementById(`r-${id}-vol`).textContent = fmtVol(q.volume);
+
+          const ctag2 = document.getElementById(`r-${id}-change-tag`);
+          ctag2.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
+          ctag2.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+
+          const stag2 = document.getElementById(`r-${id}-session`);
+          if (q.is_trading) {
+            stag2.className = "session-tag live";
+            stag2.textContent = "● 交易中";
+          } else {
+            stag2.className = "session-tag closed";
+            stag2.textContent = "○ 非交易时段";
           }
         });
 
