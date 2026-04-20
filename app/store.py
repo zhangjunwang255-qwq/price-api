@@ -212,14 +212,20 @@ class PriceStore:
     # ── 后台 writer ───────────────────────────────
 
     def _writer_loop(self):
+        consecutive_fail = 0
         while True:
             time.sleep(2)
             try:
                 self._flush()
                 self._cleanup()
+                consecutive_fail = 0
             except Exception as e:
                 log.error("writer_loop 异常: %s", e, exc_info=True)
-                time.sleep(5)
+                consecutive_fail += 1
+                if consecutive_fail >= 5:
+                    log.critical("连续失败 %d 次，主动退出让 Railway 重启", consecutive_fail)
+                    import os
+                    os._exit(1)
 
     def _flush(self):
         if not self._db_ok:
