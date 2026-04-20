@@ -302,7 +302,7 @@ class PriceStore:
 
             # Debug: 记录查询结果的时间范围
             if rows:
-                log.debug("%s %s 查询到 %d 条，时间范围: %s ~ %s",
+                log.info("%s %s 查询到 %d 条，时间范围: %s ~ %s",
                     symbol, interval_, len(rows),
                     rows[-1][3] if rows[-1][3] else "N/A",
                     rows[0][3] if rows[0][3] else "N/A")
