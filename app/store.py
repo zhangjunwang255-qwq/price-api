@@ -263,6 +263,15 @@ class PriceStore:
 
     # ── 模式控制 ──────────────────────────────────────
 
+    @property
+    def mode_info(self) -> dict:
+        """获取当前模式信息"""
+        with self._lock:
+            return {
+                "mode": self._mode,
+                "interval": self._interval,
+            }
+
     def set_mode(self, mode: str) -> dict:
         if mode not in ("竞标", "日常"):
             return {"ok": False, "error": "无效模式"}
