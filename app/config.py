@@ -11,6 +11,10 @@ LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 # PostgreSQL（Railway 内置数据库，或自行设置 postgres://...）
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 
+# 默认运行模式：竞标（实时K线，不落库）/ 日常（5min采样入库）
+# Railway 重启后自动恢复为此模式，建议保持 "日常"
+DEFAULT_MODE = os.getenv("DEFAULT_MODE", "日常")
+
 # 要订阅的品种列表（广期所，pt=铂金 pd=钯金，KQ.m@ 主力连续合约自动换月）
 SYMBOLS = ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"]
 

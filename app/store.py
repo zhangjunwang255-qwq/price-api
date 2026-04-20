@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 import psycopg2
 
-from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS
+from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS, DEFAULT_MODE
 
 
 log = logging.getLogger("price-store")
@@ -70,9 +70,10 @@ class PriceStore:
         self._prev:    dict[str, float] = {}
         self._symbols: list[str] = list(SYMBOLS)
 
-        # 采样模式控制
-        self._mode             = "竞标"
-        self._interval         = 0
+        # 采样模式控制（Railway 重启后自动恢复为 DEFAULT_MODE）
+        init_mode     = DEFAULT_MODE
+        self._mode    = init_mode
+        self._interval = 0 if init_mode == "竞标" else SAMPLE_INTERVAL_SEC
         self._last_sample_time: dict[str, float] = {}
 
         # PostgreSQL
@@ -148,14 +149,15 @@ class PriceStore:
         if not self._db_ok:
             return
         with self._write_lock:
-            batch = self._write_queue.copy()
-            self._write_queue.clear()
+            batch = self._write_queue
+            self._write_queue = []   # 保留引用，连接失败时不清空
         if not batch:
             return
         try:
             conn = self._get_conn()
             if conn is None:
-                return
+                log.warning("PG 连接失败，%d 条数据暂存队列等待重试", len(batch))
+                return   # 连接失败，队列保留，下次重试
             with conn.cursor() as cur:
                 # UPSERT: 同一时间槽只保留最新值
                 cur.executemany(
