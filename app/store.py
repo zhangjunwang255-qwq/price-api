@@ -268,8 +268,7 @@ class PriceStore:
             with conn.cursor() as cur:
                 for sym in self._symbols:
                     cur.execute(
-                        "DELETE FROM price_history WHERE dt < NOW() - INTERVAL '%d days'",
-                        (KEEP_DAYS,),
+                        f"DELETE FROM price_history WHERE dt < NOW() - INTERVAL '30 days'",
                     )
                 conn.commit()
             log.info("PG 清理完成")

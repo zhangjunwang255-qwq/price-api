@@ -239,6 +239,34 @@ def debug_pg_test():
         return {"ok": False, "error": str(e)}
 
 
+@app.get("/debug/migrate")
+def debug_migrate():
+    """一次性迁移：给 price_history 表加唯一约束（幂等）"""
+    import psycopg2
+    from .config import DATABASE_URL
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        try:
+            # PostgreSQL 没有 IF NOT EXISTS for CONSTRAINT，手动 try/except
+            with conn.cursor() as cur:
+                cur.execute("""
+                    ALTER TABLE price_history
+                    ADD CONSTRAINT price_history_symbol_dt_key
+                    UNIQUE (symbol, dt)
+                    DEFERRABLE INITIALLY DEFERRED
+                """)
+            conn.commit()
+            msg = "约束 price_history_symbol_dt_key 添加成功"
+        except psycopg2.errors.DuplicateObject:
+            conn.rollback()
+            msg = "约束已存在，跳过"
+        finally:
+            conn.close()
+        return {"ok": True, "message": msg}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 @app.get("/symbols")
 def list_symbols():
     return {
