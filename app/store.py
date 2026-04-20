@@ -67,13 +67,18 @@ _store_instance: "PriceStore | None" = None
 # ────────────────────────────────────────────────────
 class PriceStore:
 
+    _instance: "PriceStore | None" = None
+
+    def __new__(cls):
+        if cls._instance is not None:
+            return cls._instance
+        return super().__new__(cls)
+
     def __init__(self):
-        global _store_instance
-        if _store_instance is not None:
-            log.warning("PriceStore 被重复创建，返回已有实例")
-            self.__dict__.update(_store_instance.__dict__)
+        # 如果不是 freshly created（__new__ 返回已有实例），跳过所有初始化
+        if PriceStore._instance is not None:
             return
-        _store_instance = self
+        PriceStore._instance = self
 
         self._lock: dict = {}
         self._lock["main"] = threading.RLock()
