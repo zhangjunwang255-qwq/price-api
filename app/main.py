@@ -2,6 +2,7 @@
 app/main.py — FastAPI 入口
 """
 import logging, os
+from contextlib import suppress
 import asyncio, threading
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, HTTPException, Form
@@ -225,6 +226,70 @@ def debug_pg_test():
         return {"ok": True, "count": count, "latest": [str(r) for r in rows]}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+@app.get("/debug/flush_test")
+def debug_flush_test():
+    """直接测试一次 PG 写入（绕过 writer_loop），返回详细错误"""
+    import psycopg2, traceback
+    from .config import DATABASE_URL
+    from .store import _align_to_5min
+    from datetime import datetime
+
+    test_batch = [
+        ("KQ.m@GFEX.pt", 1234.5, 10, _align_to_5min(datetime.now())),
+        ("KQ.m@GFEX.pd", 567.8,  5,  _align_to_5min(datetime.now())),
+    ]
+    conn = None
+    try:
+        conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
+        with conn.cursor() as cur:
+            cur.executemany(
+                """
+                INSERT INTO price_history (symbol, price, volume, dt)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (symbol, dt) DO UPDATE
+                SET price = EXCLUDED.price, volume = EXCLUDED.volume
+                """,
+                test_batch,
+            )
+        conn.commit()
+        return {"ok": True, "count": len(test_batch), "batch": [str(t) for t in test_batch]}
+    except Exception as e:
+        tb = traceback.format_exc()
+        if conn:
+            with suppress(Exception):
+                conn.rollback()
+        return {"ok": False, "error": str(e), "type": type(e).__name__,
+                "traceback": tb, "batch": [str(t) for t in test_batch]}
+    finally:
+        if conn:
+            with suppress(Exception):
+                conn.close()
+
+
+@app.get("/debug/pg_schema")
+def debug_pg_schema():
+    """查看 price_history 表结构"""
+    import psycopg2
+    from .config import DATABASE_URL
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_name = 'price_history'
+                ORDER BY ordinal_position
+            """)
+            cols = cur.fetchall()
+            cur.execute("SELECT indexname, indexdef FROM pg_indexes WHERE tablename='price_history'")
+            idxs = cur.fetchall()
+        conn.close()
+        return {"columns": [dict(zip(["name","type","nullable","default"], r)) for r in cols],
+                "indexes": [dict(zip(["name","def"], r)) for r in idxs]}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.get("/debug/migrate")
