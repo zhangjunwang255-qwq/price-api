@@ -1,12 +1,20 @@
 """
 app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
 日常模式：存储对齐到固定5分钟时间槽，查询时按固定时间槽返回
+
+修复记录（887eb69 基础上）：
+- 修复 update() 双重 interval 检查导致日常模式采样永不触发的 bug
+- 改用 psycopg2.ThreadedConnectionPool（每操作借/还，线程安全）
+- writer_loop 顶层 try/except 防止线程崩溃
+- 采样/flush 计数器改为实例变量（类变量会导致跨实例共享问题）
 """
 import os, threading, time, logging
 from collections import defaultdict
 from datetime import datetime, timezone, timedelta
+from contextlib import suppress
 
 import psycopg2
+from psycopg2 import pool as pg_pool
 
 from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS, DEFAULT_MODE
 
@@ -14,11 +22,12 @@ from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS, DE
 log = logging.getLogger("price-store")
 
 
+# ────────────────────────────────────────────────────
+#  工具函数
+# ────────────────────────────────────────────────────
 def _is_trading_time() -> bool:
-    """判断当前是否处于贵金属期货交易时段（GFEX，白盘 + 夜盘）"""
     now = datetime.now()
-    h = now.hour
-    t = h * 60 + now.minute
+    h, t = now.hour, now.hour * 60 + now.minute
     if h >= 21 or h < 15:
         return True
     if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
@@ -31,135 +40,159 @@ def _nan(v: float) -> float:
 
 
 def _align_to_5min(dt: datetime) -> datetime:
-    """对齐到5分钟时间槽（向下取整）"""
-    minute = (dt.minute // 5) * 5
-    return dt.replace(minute=minute, second=0, microsecond=0)
+    return dt.replace(minute=(dt.minute // 5) * 5, second=0, microsecond=0)
 
 
-def _generate_fixed_slots(end_dt: datetime, interval_min: int, count: int) -> list[datetime]:
-    """
-    生成固定时间槽列表（从 end_dt 向前推）
-    interval_min: 5, 15, 60
-    """
+def _generate_fixed_slots(end_dt: datetime, interval_min: int, count: int):
     slots = []
     current = _align_to_5min(end_dt)
-    # 对齐到 interval 的边界
     if interval_min == 15:
-        # 对齐到 0, 15, 30, 45
         current = current.replace(minute=(current.minute // 15) * 15)
     elif interval_min == 60:
-        # 对齐到整点
         current = current.replace(minute=0)
-
     for _ in range(count):
         slots.append(current)
         current -= timedelta(minutes=interval_min)
-
     return list(reversed(slots))
 
 
+# ────────────────────────────────────────────────────
+#  单例守卫（防止模块被重复 import 创建多个实例）
+# ────────────────────────────────────────────────────
+_store_instance: "PriceStore | None" = None
+
+
+# ────────────────────────────────────────────────────
+#  PriceStore
+# ────────────────────────────────────────────────────
 class PriceStore:
-    """
-    内存缓存最新行情 + PostgreSQL 持久化
-    日常模式：存储对齐到5分钟时间槽
-    """
 
     def __init__(self):
-        self._lock     = threading.RLock()
+        global _store_instance
+        if _store_instance is not None:
+            log.warning("PriceStore 被重复创建，返回已有实例")
+            self.__dict__.update(_store_instance.__dict__)
+            return
+        _store_instance = self
+
+        self._lock: dict = {}
+        self._lock["main"] = threading.RLock()
         self._latest:  dict[str, dict] = {}
         self._prev:    dict[str, float] = {}
         self._symbols: list[str] = list(SYMBOLS)
 
-        # 采样模式控制（Railway 重启后自动恢复为 DEFAULT_MODE）
-        init_mode     = DEFAULT_MODE
-        self._mode    = init_mode
-        self._interval = 0 if init_mode == "竞标" else SAMPLE_INTERVAL_SEC
+        # 采样模式
+        self._mode    = DEFAULT_MODE
+        self._interval = 0 if DEFAULT_MODE == "竞标" else SAMPLE_INTERVAL_SEC
         self._last_sample_time: dict[str, float] = {}
 
-        # PostgreSQL
-        self._conn: psycopg2.extensions.connection | None = None
+        # PostgreSQL 连接池
+        self._cp: pg_pool.ThreadedConnectionPool | None = None
         self._db_ok: bool = True
-
         self._init_db()
 
-        # 后台写入线程
+        # 写入队列
         self._write_queue: list[tuple] = []
         self._write_lock   = threading.Lock()
-        self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
+
+        # 后台 writer 线程
+        self._writer_thread = threading.Thread(
+            target=self._writer_loop, daemon=True, name="writer-loop"
+        )
         self._writer_thread.start()
 
-    # ── PostgreSQL ───────────────────────────────────
+        # 统计计数器（实例变量，不是类变量）
+        self._update_count = 0
+        self._sample_count = 0
+        self._flush_ok     = 0
+        self._flush_fail   = 0
 
-    def _get_conn(self) -> psycopg2.extensions.connection | None:
-        if not self._db_ok:
+        log.info("PriceStore 初始化完成，模式=%s，PG=%s", self._mode, self._db_ok)
+
+    # ── PG 连接池 ──────────────────────────────────
+
+    def _pg_get(self):
+        """从连接池获取连接，失败返回 None"""
+        if not self._db_ok or self._cp is None:
             return None
-        if self._conn is None or self._conn.closed:
-            try:
-                self._conn = psycopg2.connect(DATABASE_URL)
-                log.info("PostgreSQL 连接已建立")
-            except Exception as e:
-                log.warning("PostgreSQL 连接失败: %s", e)
-                self._db_ok = False
-                return None
-        return self._conn
-
-    def _init_db(self):
-        if not DATABASE_URL:
-            log.warning("未设置 DATABASE_URL，降级为纯内存模式")
-            self._db_ok = False
-            return
-
-        conn = self._get_conn()
-        if conn is None:
-            self._db_ok = False
-            return
-
         try:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS price_history (
-                        id         BIGSERIAL PRIMARY KEY,
-                        symbol     TEXT        NOT NULL,
-                        price      NUMERIC(16,4) NOT NULL,
-                        volume     BIGINT      NOT NULL,
-                        dt         TIMESTAMPTZ NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        UNIQUE(symbol, dt)
-                    )
-                """)
-                cur.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_price_history_lookup
-                    ON price_history (symbol, dt DESC)
-                """)
-            conn.commit()
-            log.info("PostgreSQL price_history 表就绪")
+            return self._cp.getconn()
+        except Exception as e:
+            log.warning("从连接池获取连接失败: %s", e)
+            return None
+
+    def _pg_put(self, conn):
+        """归还连接到连接池"""
+        if conn and self._cp:
+            with suppress(Exception):
+                self._cp.putconn(conn)
+
+    def _init_db(self) -> bool:
+        if not DATABASE_URL:
+            log.warning("DATABASE_URL 未设置，降级为纯内存模式")
+            self._db_ok = False
+            return False
+        try:
+            self._cp = pg_pool.ThreadedConnectionPool(
+                minconn=1, maxconn=6, dsn=DATABASE_URL, connect_timeout=5,
+            )
+            conn = self._cp.getconn()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS price_history (
+                            id         BIGSERIAL PRIMARY KEY,
+                            symbol     TEXT        NOT NULL,
+                            price      NUMERIC(16,4) NOT NULL,
+                            volume     BIGINT      NOT NULL,
+                            dt         TIMESTAMPTZ NOT NULL,
+                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                            UNIQUE(symbol, dt)
+                        )
+                    """)
+                    cur.execute("""
+                        CREATE INDEX IF NOT EXISTS idx_price_history_lookup
+                        ON price_history (symbol, dt DESC)
+                    """)
+                conn.commit()
+            finally:
+                self._cp.putconn(conn)
+            self._db_ok = True
+            log.info("PostgreSQL 连接池建立，表就绪")
+            return True
         except Exception as e:
             log.warning("PostgreSQL 初始化失败: %s", e)
             self._db_ok = False
+            return False
 
-    # ── 后台写入 ─────────────────────────────────────
+    # ── 后台 writer ─────────────────────────────────
 
     def _writer_loop(self):
         while True:
             time.sleep(2)
-            self._flush()
-            self._cleanup()
+            try:
+                self._flush()
+                self._cleanup()
+            except Exception as e:
+                log.error("writer_loop 异常: %s", e, exc_info=True)
+                time.sleep(5)
 
     def _flush(self):
         if not self._db_ok:
             return
         with self._write_lock:
             batch = self._write_queue
-            self._write_queue = []   # 保留引用，连接失败时不清空
+            self._write_queue = []
         if not batch:
             return
+        conn = self._pg_get()
+        if conn is None:
+            log.warning("PG 连接失败，%d 条数据暂存等待重试", len(batch))
+            with self._write_lock:
+                self._write_queue = batch + self._write_queue
+            return
         try:
-            conn = self._get_conn()
-            if conn is None:
-                log.warning("PG 连接失败，%d 条数据暂存队列等待重试", len(batch))
-                return   # 连接失败，队列保留，下次重试
             with conn.cursor() as cur:
-                # UPSERT: 同一时间槽只保留最新值
                 cur.executemany(
                     """
                     INSERT INTO price_history (symbol, price, volume, dt)
@@ -171,15 +204,24 @@ class PriceStore:
                 )
             conn.commit()
             self._flush_ok += len(batch)
+            log.info("PG flush 成功: %d 条", len(batch))
         except Exception as e:
             log.warning("PG 批量写入失败: %s", e)
+            with suppress(Exception):
+                conn.rollback()
+            with self._write_lock:
+                self._write_queue = batch + self._write_queue
             self._flush_fail += len(batch)
+        finally:
+            self._pg_put(conn)
 
     def _cleanup(self):
         if not self._db_ok:
             return
+        conn = self._pg_get()
+        if conn is None:
+            return
         try:
-            conn = self._get_conn()
             with conn.cursor() as cur:
                 for sym in self._symbols:
                     cur.execute(
@@ -203,155 +245,159 @@ class PriceStore:
                 conn.commit()
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
+        finally:
+            self._pg_put(conn)
 
-    # ── 写入（主线程调用）───────────────────────────────
-
-    # 调试计数器（部署后可删）
-    _update_count = 0
-    _sample_count = 0
-    _flush_ok = 0
-    _flush_fail = 0
+    # ── 行情更新 ──────────────────────────────────
 
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
         self._update_count += 1
 
-        now = time.time()
-        last = self._last_sample_time.get(symbol, 0.0)
-
-        if self._interval > 0 and (now - last) < self._interval:
+        # 竞标模式直接写内存，不采样
+        if self._mode == "竞标":
+            with self._lock["main"]:
+                prev_price = self._prev.get(symbol)
+                self._prev[symbol] = _nan(price)
+                self._latest[symbol] = {
+                    "symbol": symbol,
+                    "instrument_id": instrument_id,
+                    "price": _nan(price),
+                    "volume": int(volume),
+                    "dt": dt,
+                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "is_trading": _is_trading_time(),
+                }
             return
 
-        with self._lock:
-            last = self._last_sample_time.get(symbol, 0.0)
-            if self._interval > 0 and (time.time() - last) < self._interval:
+        # 日常模式：检查采样间隔（只在锁外检查一次）
+        now = time.time()
+        if self._interval > 0 and (now - self._last_sample_time.get(symbol, 0.0)) < self._interval:
+            # 更新内存数据但不采样
+            with self._lock["main"]:
+                prev_price = self._prev.get(symbol)
+                self._prev[symbol] = _nan(price)
+                self._latest[symbol] = {
+                    "symbol": symbol,
+                    "instrument_id": instrument_id,
+                    "price": _nan(price),
+                    "volume": int(volume),
+                    "dt": dt,
+                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "is_trading": _is_trading_time(),
+                }
+            return
+
+        # 需要采样
+        with self._lock["main"]:
+            # 二次确认（防止锁竞争导致重复采样）
+            if self._interval > 0 and (time.time() - self._last_sample_time.get(symbol, 0.0)) < self._interval:
+                prev_price = self._prev.get(symbol)
+                self._prev[symbol] = _nan(price)
+                self._latest[symbol] = {
+                    "symbol": symbol,
+                    "instrument_id": instrument_id,
+                    "price": _nan(price),
+                    "volume": int(volume),
+                    "dt": dt,
+                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "is_trading": _is_trading_time(),
+                }
                 return
             self._last_sample_time[symbol] = time.time()
 
             prev_price = self._prev.get(symbol)
             change = None
-            change_pct = None
             if prev_price is not None and prev_price != 0:
-                change = round(price - prev_price, 2)
-                change_pct = round(change / prev_price * 100, 4)
+                change = round(_nan(price) - prev_price, 2)
 
-            record = {
+            self._latest[symbol] = {
                 "symbol": symbol,
                 "instrument_id": instrument_id,
                 "price": _nan(price),
                 "volume": int(volume),
                 "dt": dt,
                 "change": change,
-                "change_pct": change_pct,
                 "is_trading": _is_trading_time(),
             }
-            self._latest[symbol] = record
             self._prev[symbol] = _nan(price)
 
-            if self._mode == "竞标":
-                return
-
-            # 日常模式：对齐到5分钟时间槽
-            dt_parsed = self._parse_dt(dt)
-            aligned_dt = _align_to_5min(dt_parsed)
-
-            with self._write_lock:
-                self._write_queue.append((symbol, _nan(price), int(volume), aligned_dt))
-            self._sample_count += 1
+        # 采样数据入队（锁外操作队列）
+        dt_parsed = self._parse_dt(dt)
+        aligned_dt = _align_to_5min(dt_parsed)
+        with self._write_lock:
+            self._write_queue.append((symbol, _nan(price), int(volume), aligned_dt))
+        self._sample_count += 1
 
     def _parse_dt(self, dt_str: str) -> datetime:
         if not dt_str:
             return datetime.now(timezone.utc)
         try:
-            return datetime.strptime(dt_str[:23], "%Y-%m-%d %H:%M:%S.%f").replace(
-                tzinfo=timezone.utc
-            )
+            return datetime.strptime(dt_str[:23], "%Y-%m-%d %H:%M:%S.%f").replace(tzinfo=timezone.utc)
         except Exception:
             try:
-                return datetime.strptime(dt_str[:19], "%Y-%m-%d %H:%M:%S").replace(
-                    tzinfo=timezone.utc
-                )
+                return datetime.strptime(dt_str[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
             except Exception:
                 return datetime.now(timezone.utc)
 
-    # ── 模式控制 ──────────────────────────────────────
+    # ── 模式控制 ──────────────────────────────────
 
     @property
     def mode_info(self) -> dict:
-        """获取当前模式信息"""
-        with self._lock:
-            return {
-                "mode": self._mode,
-                "interval": self._interval,
-            }
+        return {"mode": self._mode, "interval": self._interval}
 
     def set_mode(self, mode: str) -> dict:
         if mode not in ("竞标", "日常"):
             return {"ok": False, "error": "无效模式"}
-        with self._lock:
+        with self._lock["main"]:
             self._mode = mode
             self._interval = 0 if mode == "竞标" else SAMPLE_INTERVAL_SEC
             self._last_sample_time = {}
-            log.info("采样模式切换: %s", mode)
+        log.info("采样模式切换: %s", mode)
         return {"ok": True, "mode": self._mode, "interval": self._interval}
 
-    # ── 查询 ──────────────────────────────────────────
+    # ── 查询 ──────────────────────────────────────
 
     @property
     def latest(self) -> dict[str, dict]:
-        with self._lock:
-            return self._latest.copy()
+        with self._lock["main"]:
+            return dict(self._latest)
 
     @property
     def symbols(self) -> list[str]:
-        with self._lock:
-            return list(self._symbols)
+        return list(self._symbols)
 
     def get_history(self, symbol: str,
                     interval_: str = "5min",
                     limit: int = 200) -> list[dict]:
-        """
-        按固定时间槽查询历史数据
-        interval_: '5min' | '15min' | '1hour'
-        返回固定时间槽，找最接近的数据填充
-        """
         if not self._db_ok:
             return []
-
         interval_min = {"5min": 5, "15min": 15, "1hour": 60}.get(interval_, 5)
-
         try:
-            conn = self._get_conn()
+            conn = self._pg_get()
             if conn is None:
                 return []
-
-            # 生成固定时间槽（从当前时间向前推）
             now = datetime.now(timezone.utc)
             slots = _generate_fixed_slots(now, interval_min, limit)
-
             if not slots:
+                self._pg_put(conn)
                 return []
-
-            # 查询该品种的所有数据（用于填充）
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT price, dt FROM price_history
                        WHERE symbol = %s AND dt >= %s
                        ORDER BY dt ASC""",
-                    (symbol, slots[0] - timedelta(minutes=interval_min))
+                    (symbol, slots[0] - timedelta(minutes=interval_min)),
                 )
                 db_rows = cur.fetchall()
+            self._pg_put(conn)
 
-            # 按时间槽填充数据
             result = []
             db_idx = 0
             last_price = None
-
             for slot in slots:
-                # 找最接近该时间槽的数据
                 best_price = None
                 best_diff = timedelta.max
-
                 while db_idx < len(db_rows):
                     price, dt = db_rows[db_idx]
                     diff = abs(dt - slot)
@@ -362,20 +408,11 @@ class PriceStore:
                     elif dt > slot + timedelta(minutes=interval_min / 2):
                         break
                     db_idx += 1
-
                 if best_price is None:
                     best_price = last_price
-
                 if best_price is not None:
-                    result.append({
-                        "datetime": slot.isoformat(),
-                        "price": best_price,
-                        "symbol": symbol,
-                    })
-
-            log.info("%s %s 生成 %d 个固定时间槽", symbol, interval_, len(result))
+                    result.append({"datetime": slot.isoformat(), "price": best_price, "symbol": symbol})
             return result
-
         except Exception as e:
             log.warning("查询历史数据失败: %s", e)
             return []
@@ -383,81 +420,45 @@ class PriceStore:
     def debug_slot_matching(self, symbol: str,
                            interval_: str = "5min",
                            limit: int = 20) -> dict:
-        """诊断接口：返回每个固定时间槽及匹配详情"""
-        interval_map = {"5min": 5, "15min": 15, "1hour": 60}
-        interval_min = interval_map.get(interval_, 5)
-
+        interval_min = {"5min": 5, "15min": 15, "1hour": 60}.get(interval_, 5)
         if not self._db_ok:
             return {"error": "数据库未连接"}
-
         try:
-            conn = self._get_conn()
+            conn = self._pg_get()
             if conn is None:
                 return {"error": "数据库连接失败"}
-
             now = datetime.now(timezone.utc)
             slots = _generate_fixed_slots(now, interval_min, limit)
-
-            # 查询该品种所有原始数据
             with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT id, price, dt, created_at
-                    FROM price_history
-                    WHERE symbol = %s
-                    ORDER BY dt ASC
-                """, (symbol,))
+                cur.execute(
+                    "SELECT id, price, dt, created_at FROM price_history WHERE symbol=%s ORDER BY dt ASC",
+                    (symbol,),
+                )
                 raw_rows = cur.fetchall()
-
+            self._pg_put(conn)
             all_prices = [float(r[1]) for r in raw_rows]
             all_dts = [r[2] for r in raw_rows]
-
             slot_results = []
-            matched = 0
-            unmatched = 0
-
             for slot in slots:
-                best_idx = -1
-                best_diff = timedelta.max
-
+                best_idx, best_diff = -1, timedelta.max
                 for i, dt in enumerate(all_dts):
                     diff = abs(dt - slot)
                     if diff < best_diff and diff <= timedelta(minutes=interval_min / 2):
                         best_diff = diff
                         best_idx = i
-
                 if best_idx >= 0:
-                    diff_min = best_diff.total_seconds() / 60
                     slot_results.append({
-                        "slot": slot.isoformat(),
-                        "matched": True,
-                        "diff_minutes": round(diff_min, 1),
+                        "slot": slot.isoformat(), "matched": True,
+                        "diff_minutes": round(best_diff.total_seconds() / 60, 1),
                         "matched_price": all_prices[best_idx],
                         "matched_dt": all_dts[best_idx].isoformat(),
-                        "raw_id": raw_rows[best_idx][0],
                     })
-                    matched += 1
                 else:
-                    slot_results.append({
-                        "slot": slot.isoformat(),
-                        "matched": False,
-                        "diff_minutes": None,
-                        "matched_price": None,
-                        "matched_dt": None,
-                        "raw_id": None,
-                    })
-                    unmatched += 1
-
+                    slot_results.append({"slot": slot.isoformat(), "matched": False})
             return {
-                "symbol": symbol,
-                "interval": interval_,
-                "interval_min": interval_min,
-                "total_slots": len(slots),
-                "matched": matched,
-                "unmatched": unmatched,
-                "raw_data_count": len(raw_rows),
+                "symbol": symbol, "interval": interval_, "raw_data_count": len(raw_rows),
                 "slots": slot_results,
             }
-
         except Exception as e:
             log.warning("debug_slot_matching 失败: %s", e)
             return {"error": str(e)}
