@@ -323,19 +323,6 @@ class PriceStore:
             return
 
         with self._lock["main"]:
-            if self._interval > 0 and (time.time() - self._last_sample_time.get(symbol, 0.0)) < self._interval:
-                prev = self._prev.get(symbol)
-                self._prev[symbol] = _nan(price)
-                self._latest[symbol] = {
-                    "symbol": symbol,
-                    "instrument_id": instrument_id,
-                    "price": _nan(price),
-                    "volume": int(volume),
-                    "dt": dt,
-                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
-                    "is_trading": _is_trading_time(),
-                }
-                return
             self._last_sample_time[symbol] = time.time()
 
             prev = self._prev.get(symbol)
