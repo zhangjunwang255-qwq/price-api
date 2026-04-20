@@ -23,18 +23,12 @@ log = logging.getLogger("price-store")
 
 
 # ────────────────────────────────────────────────────
-#  广期所贵金属交易时段（写死，不依赖数据库时间戳）
+#  广期所贵金属交易时段（只有白盘，无夜盘）
 # ────────────────────────────────────────────────────
 # 白盘三节（北京时间）：
 #   第一节  09:00 – 10:15
 #   第二节  10:30 – 11:30
 #   第三节  13:30 – 15:00
-# 夜盘（周一～四）21:00 – 次日 02:30
-#
-# 时间轴由当前时间决定：
-#   09:00–15:00 → 今天白盘
-#   15:01–20:59 → 今天白盘（收盘后仍显示）
-#   21:00+ / 00:00–08:59 → 昨夜夜盘
 
 
 # ── 单节时间槽生成 ─────────────────────────────────
@@ -78,44 +72,8 @@ def _day_session_slots(interval_min: int) -> list[datetime]:
     return result
 
 
-def _night_session_slots(interval_min: int) -> list[datetime]:
-    """
-    昨夜夜盘所有固定时间槽（21:00 → 次日 02:30）。
-    周一→上周五夜盘，周日→上周五夜盘，周二～六→前一天夜盘。
-    """
-    now = datetime.now()
-    weekday = now.weekday()
-    if weekday == 0:        # 周一 → 上周五
-        prev = now.date() - timedelta(days=3)
-    elif weekday == 6:     # 周日 → 上周五
-        prev = now.date() - timedelta(days=2)
-    else:                   # 周二～六 → 前一天
-        prev = now.date() - timedelta(days=1)
-
-    result = []
-
-    # 当天 21:00 → 23:59
-    for h, m in _section_slots(21, 0, 24, 0, interval_min):
-        result.append(datetime(prev.year, prev.month, prev.day, h, m, 0))
-
-    # 次日 00:00 → 02:30
-    next_day = prev + timedelta(days=1)
-    for h, m in _section_slots(0, 0, 3, 0, interval_min):
-        if h == 2 and m >= 30:
-            break
-        result.append(datetime(next_day.year, next_day.month, next_day.day, h, m, 0))
-
-    return result
-
-
 def _current_session_slots(interval_min: int) -> list[datetime]:
-    """返回当前应显示的交易时段所有固定时间槽"""
-    now = datetime.now()
-    h = now.hour
-    if 15 <= h < 21:
-        return _day_session_slots(interval_min)
-    if h >= 21 or h < 9:
-        return _night_session_slots(interval_min)
+    """返回今天白盘所有固定时间槽"""
     return _day_session_slots(interval_min)
 
 
@@ -125,22 +83,19 @@ def _current_session_slots(interval_min: int) -> list[datetime]:
 def _is_trading_time() -> bool:
     """判断当前是否在交易时段
 
-    白盘：09:00-10:15, 10:30-11:30, 13:30-15:00
-    夜盘：21:00-次日 02:30
+    广期所铂钯只有白盘：
+    - 第一节 09:00-10:15
+    - 第二节 10:30-11:30
+    - 第三节 13:30-15:00
     """
     now = datetime.now()
     h, m = now.hour, now.minute
     t = h * 60 + m  # 当天分钟数
 
-    # 白盘三节
     # 第一节 09:00-10:15  → 540-615
     # 第二节 10:30-11:30  → 630-690
     # 第三节 13:30-15:00  → 810-900
     if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
-        return True
-
-    # 夜盘 21:00-23:59 + 00:00-02:30
-    if (21 <= h <= 23) or (h == 0) or (h == 1) or (h == 2 and m < 30):
         return True
 
     return False
