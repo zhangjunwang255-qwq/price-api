@@ -3,19 +3,18 @@ app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
 
 修复记录：
 - update() 双重 interval 检查 bug → 采样恢复
-- PG 单连接 → ThreadedConnectionPool（线程安全）
 - writer_loop 顶层 try/except（防崩溃）
 - 统计计数器改实例变量
 - 单例守卫用 __new__
 - 时间轴改为固定交易时段（9:00/10:30/13:30 三节，含间隙），不依赖数据库时间戳
 - KEEP_DAYS=30（按时间清理）
+- PG 写入：每次新建独立连接（不用池），避免连接被污染导致静默失败
 """
 import threading, time, logging
 from datetime import datetime, timedelta
 from contextlib import suppress
 
 import psycopg2
-from psycopg2 import pool as pg_pool
 
 from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_DAYS, DEFAULT_MODE
 
@@ -114,12 +113,9 @@ def _current_session_slots(interval_min: int) -> list[datetime]:
     now = datetime.now()
     h = now.hour
     if 15 <= h < 21:
-        # 15:01–20:59 → 今天白盘（收盘后仍展示）
         return _day_session_slots(interval_min)
     if h >= 21 or h < 9:
-        # 21:00+ 或 00:00–08:59 → 昨夜夜盘
         return _night_session_slots(interval_min)
-    # 09:00–14:59 → 今天白盘
     return _day_session_slots(interval_min)
 
 
@@ -171,10 +167,13 @@ class PriceStore:
         self._interval = 0 if DEFAULT_MODE == "竞标" else SAMPLE_INTERVAL_SEC
         self._last_sample_time: dict[str, float] = {}
 
-        # PostgreSQL 连接池
-        self._cp: pg_pool.ThreadedConnectionPool | None = None
-        self._db_ok: bool = True
-        self._init_db()
+        # PG 状态（用简单标志，不用连接池）
+        self._db_ok: bool = bool(DATABASE_URL)
+        if not DATABASE_URL:
+            log.warning("DATABASE_URL 未设置，降级为纯内存模式")
+        else:
+            log.info("PriceStore 初始化，模式=%s，PG=%s", self._mode, self._db_ok)
+            self._test_pg()  # 初始化时测试 PG
 
         self._write_queue: list[tuple] = []
         self._write_lock   = threading.Lock()
@@ -189,61 +188,26 @@ class PriceStore:
         self._flush_ok     = 0
         self._flush_fail   = 0
 
-        log.info("PriceStore 初始化，模式=%s，PG=%s", self._mode, self._db_ok)
-
-    # ── PG 连接池 ─────────────────────────────────
-
-    def _pg_get(self):
-        if not self._db_ok or self._cp is None:
-            return None
+    def _test_pg(self) -> bool:
+        """启动时测试 PG 连接是否正常"""
         try:
-            return self._cp.getconn()
-        except Exception as e:
-            log.warning("从连接池获取连接失败: %s", e)
-            return None
-
-    def _pg_put(self, conn):
-        if conn and self._cp:
-            with suppress(Exception):
-                self._cp.putconn(conn)
-
-    def _init_db(self) -> bool:
-        if not DATABASE_URL:
-            log.warning("DATABASE_URL 未设置，降级为纯内存模式")
-            self._db_ok = False
-            return False
-        try:
-            self._cp = pg_pool.ThreadedConnectionPool(
-                minconn=1, maxconn=6, dsn=DATABASE_URL, connect_timeout=5,
-            )
-            conn = self._cp.getconn()
+            conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
             try:
                 with conn.cursor() as cur:
-                    cur.execute("""
-                        CREATE TABLE IF NOT EXISTS price_history (
-                            id         BIGSERIAL PRIMARY KEY,
-                            symbol     TEXT        NOT NULL,
-                            price      NUMERIC(16,4) NOT NULL,
-                            volume     BIGINT      NOT NULL,
-                            dt         TIMESTAMPTZ NOT NULL,
-                            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                            UNIQUE(symbol, dt)
-                        )
-                    """)
-                    cur.execute("""
-                        CREATE INDEX IF NOT EXISTS idx_price_history_lookup
-                        ON price_history (symbol, dt DESC)
-                    """)
+                    cur.execute("SELECT 1")
                 conn.commit()
             finally:
-                self._cp.putconn(conn)
-            self._db_ok = True
-            log.info("PostgreSQL 连接池建立，表就绪")
+                conn.close()
+            log.info("PG 连接测试成功")
             return True
         except Exception as e:
-            log.warning("PostgreSQL 初始化失败: %s", e)
+            log.warning("PG 启动测试失败: %s", e)
             self._db_ok = False
             return False
+
+    def _pg_conn(self):
+        """每次新建独立 PG 连接（不使用池，避免连接被污染）"""
+        return psycopg2.connect(DATABASE_URL, connect_timeout=5)
 
     # ── 后台 writer ───────────────────────────────
 
@@ -265,13 +229,10 @@ class PriceStore:
             self._write_queue = []
         if not batch:
             return
-        conn = self._pg_get()
-        if conn is None:
-            log.warning("PG 连接失败，%d 条暂存等待重试", len(batch))
-            with self._write_lock:
-                self._write_queue = batch + self._write_queue
-            return
+
+        conn = None
         try:
+            conn = self._pg_conn()
             with conn.cursor() as cur:
                 cur.executemany(
                     """
@@ -284,23 +245,26 @@ class PriceStore:
                 )
             conn.commit()
             self._flush_ok += len(batch)
+            log.info("PG 写入成功: %d 条", len(batch))
         except Exception as e:
-            log.warning("PG 批量写入失败: %s", e)
-            with suppress(Exception):
-                conn.rollback()
+            log.error("PG 写入失败 [%s]: %s | batch[0]=%s", type(e).__name__, e, batch[:1])
+            if conn:
+                with suppress(Exception):
+                    conn.rollback()
             with self._write_lock:
                 self._write_queue = batch + self._write_queue
             self._flush_fail += len(batch)
         finally:
-            self._pg_put(conn)
+            if conn:
+                with suppress(Exception):
+                    conn.close()
 
     def _cleanup(self):
         if not self._db_ok:
             return
-        conn = self._pg_get()
-        if conn is None:
-            return
+        conn = None
         try:
+            conn = self._pg_conn()
             with conn.cursor() as cur:
                 for sym in self._symbols:
                     cur.execute(
@@ -308,11 +272,13 @@ class PriceStore:
                         (KEEP_DAYS,),
                     )
                 conn.commit()
-                log.info("PG 清理完成")
+            log.info("PG 清理完成")
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
         finally:
-            self._pg_put(conn)
+            if conn:
+                with suppress(Exception):
+                    conn.close()
 
     # ── 行情更新 ─────────────────────────────────
 
@@ -428,11 +394,6 @@ class PriceStore:
                     limit: int = 200) -> list[dict]:
         """
         按固定交易时段时间轴返回数据（不依赖数据库时间戳）。
-        时间轴：
-          5min  09:00 → 15:00（三节间隙跳过）
-          15min 09:00 → 15:00
-          1hour  09:00, 10:30, 13:30, 14:30, 15:00
-        每个槽用数据库中离该整点最近的价格填充。
         """
         interval_map = {"5min": 5, "15min": 15, "1hour": 60}
         interval_min = interval_map.get(interval_, 5)
@@ -445,20 +406,23 @@ class PriceStore:
             return [{"datetime": s.strftime("%Y-%m-%d %H:%M"),
                      "price": None, "symbol": symbol} for s in slots]
 
-        conn = self._pg_get()
-        if conn is None:
-            return [{"datetime": s.strftime("%Y-%m-%d %H:%M"),
-                     "price": None, "symbol": symbol} for s in slots]
-
+        conn = None
         try:
+            conn = self._pg_conn()
             with conn.cursor() as cur:
                 cur.execute(
                     "SELECT price, dt FROM price_history WHERE symbol=%s ORDER BY dt ASC",
                     (symbol,),
                 )
                 rows = cur.fetchall()
+        except Exception as e:
+            log.warning("get_history 查询失败: %s", e)
+            return [{"datetime": s.strftime("%Y-%m-%d %H:%M"),
+                     "price": None, "symbol": symbol} for s in slots]
         finally:
-            self._pg_put(conn)
+            if conn:
+                with suppress(Exception):
+                    conn.close()
 
         result = []
         last_price = None
