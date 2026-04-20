@@ -241,14 +241,26 @@ def debug_pg_test():
 
 @app.get("/debug/migrate")
 def debug_migrate():
-    """一次性迁移：给 price_history 表加唯一约束（幂等）"""
+    """一次性迁移：清理重复数据 → 加唯一约束"""
     import psycopg2
     from .config import DATABASE_URL
     try:
         conn = psycopg2.connect(DATABASE_URL)
         try:
-            # PostgreSQL 没有 IF NOT EXISTS for CONSTRAINT，手动 try/except
             with conn.cursor() as cur:
+                # 1. 删重复：保留每个 (symbol,dt) 的最大 ctid（最新一条）
+                cur.execute("""
+                    DELETE FROM price_history a
+                    USING price_history b
+                    WHERE a.ctid < b.ctid
+                      AND a.symbol = b.symbol
+                      AND a.dt = b.dt
+                """)
+                deleted = cur.rowcount
+                conn.commit()
+                log.info("清理重复数据: %d 条", deleted)
+
+                # 2. 加唯一约束
                 cur.execute("""
                     ALTER TABLE price_history
                     ADD CONSTRAINT price_history_symbol_dt_key
@@ -256,13 +268,14 @@ def debug_migrate():
                     DEFERRABLE INITIALLY DEFERRED
                 """)
             conn.commit()
-            msg = "约束 price_history_symbol_dt_key 添加成功"
+            return {"ok": True, "deleted_duplicates": deleted,
+                    "message": "约束添加成功，数据已清理"}
         except psycopg2.errors.DuplicateObject:
             conn.rollback()
-            msg = "约束已存在，跳过"
+            return {"ok": True, "deleted_duplicates": 0,
+                    "message": "约束已存在，无需操作"}
         finally:
             conn.close()
-        return {"ok": True, "message": msg}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
