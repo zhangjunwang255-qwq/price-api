@@ -63,7 +63,7 @@ def _day_session_slots(interval_min: int) -> list[datetime]:
     sections = [
         (9,  0,  10, 15),   # 第一节
         (10, 30, 11, 30),   # 第二节
-        (13, 30, 15,  0),   # 第三节（含 15:00）
+        (13, 30, 15,  1),   # 第三节（含 15:00，+1 确保 15:00 被包含）
     ]
     result = []
     for sh, sm, eh, em in sections:
@@ -241,7 +241,7 @@ class PriceStore:
         try:
             conn = self._pg_conn()
             with conn.cursor() as cur:
-                cur.execute("DELETE FROM price_history WHERE dt < NOW() - INTERVAL '30 days'")
+                cur.execute(f"DELETE FROM price_history WHERE dt < NOW() - INTERVAL '{KEEP_DAYS} days'")
                 deleted = cur.rowcount
             conn.commit()
             if deleted:

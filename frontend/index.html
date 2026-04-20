@@ -333,7 +333,7 @@ const MAX_PTS = 80;
 const DAY_SECTIONS = [
   { h: 9,  m: 0,  eh: 10, em: 15 },
   { h: 10, m: 30, eh: 11, em: 30 },
-  { h: 13, m: 30, eh: 15, em: 0  },
+  { h: 13, m: 30, eh: 15, em: 1  },   // +1 确保 15:00 被包含
 ];
 
 function _genSlots(startH, startM, endH, endM, stepMin) {
@@ -595,11 +595,11 @@ function updatePriceCard(prefix, id, q) {
   const p = fmt2(q.price);
   const c = q.change || 0;
   document.getElementById(`${prefix}${id}-price`).innerHTML = `${p}<span class="unit"> 元/克</span>`;
-  document.getElementById(`${prefix}${id}-change`).textContent = `${fmt2(q.change)} (${fmt2(q.change_pct)}%)`;
+  document.getElementById(`${prefix}${id}-change`).textContent = `${fmt2(c)}`;
   document.getElementById(`${prefix}${id}-vol`).textContent = fmtVol(q.volume);
   const ctag = document.getElementById(`${prefix}${id}-change-tag`);
   ctag.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
-  ctag.textContent = (c > 0 ? "+" : "") + fmt2(q.change_pct) + "%";
+  ctag.textContent = (c > 0 ? "+" : "") + fmt2(c);
   const stag = document.getElementById(`${prefix}${id}-session`);
   stag.className = "session-tag " + (q.is_trading ? "live" : "closed");
   stag.textContent = q.is_trading ? "● 交易中" : "○ 非交易时段";
