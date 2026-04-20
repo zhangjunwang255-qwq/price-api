@@ -44,7 +44,7 @@ class PriceStore:
         # 采样模式控制
         self._mode             = "竞标"
         self._interval         = 0           # 0=实时, 300=5分钟
-        self._last_sample_time = 0.0
+        self._last_sample_time: dict[str, float] = {}  # 每个品种独立计时
 
         # PostgreSQL
         self._conn: psycopg2.extensions.connection | None = None
@@ -184,15 +184,18 @@ class PriceStore:
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
         now = time.time()
+        last = self._last_sample_time.get(symbol, 0.0)
 
-        # 日常模式：按 SAMPLE_INTERVAL_SEC 采样
-        if self._interval > 0 and (now - self._last_sample_time) < self._interval:
+        # 日常模式：按 SAMPLE_INTERVAL_SEC 采样（每个品种独立计时）
+        if self._interval > 0 and (now - last) < self._interval:
             return
 
         with self._lock:
-            if self._interval > 0 and (time.time() - self._last_sample_time) < self._interval:
+            # 双重检查
+            last = self._last_sample_time.get(symbol, 0.0)
+            if self._interval > 0 and (time.time() - last) < self._interval:
                 return
-            self._last_sample_time = time.time()
+            self._last_sample_time[symbol] = time.time()
 
             prev_price = self._prev.get(symbol)
             change     = None
@@ -241,7 +244,7 @@ class PriceStore:
         with self._lock:
             self._mode = mode
             self._interval = 0 if mode == "竞标" else SAMPLE_INTERVAL_SEC
-            self._last_sample_time = 0.0
+            self._last_sample_time = {}  # 重置所有品种的计时
             log.info("采样模式切换: %s (间隔 %d 秒)", mode, self._interval)
         return {"ok": True, "mode": self._mode, "interval": self._interval}
 
@@ -321,12 +324,20 @@ class PriceStore:
             return []
 
     def _format_rows(self, rows: list, limit: int) -> list[dict]:
+        def fmt_dt(dt):
+            if not hasattr(dt, 'strftime'):
+                return str(dt)
+            # 返回带时区的 ISO 格式，前端能正确解析
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return [
             {
                 "symbol":   r[0],
                 "price":    float(r[1]),
                 "volume":   int(r[2]),
-                "datetime": r[3].strftime("%Y-%m-%d %H:%M:%S") if hasattr(r[3], 'strftime') else str(r[3]),
+                "datetime": fmt_dt(r[3]),
             }
             for r in reversed(rows[:limit])
         ]
