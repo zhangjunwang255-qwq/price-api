@@ -1,30 +1,47 @@
 """
 app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
-日常模式：存储对齐到固定5分钟时间槽，查询时按固定时间槽返回
 
-修复记录（887eb69 基础上）：
-- 修复 update() 双重 interval 检查导致日常模式采样永不触发的 bug
-- 改用 psycopg2.ThreadedConnectionPool（每操作借/还，线程安全）
-- writer_loop 顶层 try/except 防止线程崩溃
-- 采样/flush 计数器改为实例变量（类变量会导致跨实例共享问题）
+核心修复：
+- update() 采样 bug（双重 interval 检查）
+- PG 单连接 → ThreadedConnectionPool
+- writer_loop 顶层 try/except
+- 统计计数器改为实例变量
+- 单例守卫用 __new__
+- 时间轴不再依赖数据库时间戳，按固定交易时段规则生成
+- 数据库保留 30 日数据（KEEP_DAYS=30）
 """
 import os, threading, time, logging
-from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 from contextlib import suppress
 
 import psycopg2
 from psycopg2 import pool as pg_pool
 
-from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS, DEFAULT_MODE
+from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_DAYS, DEFAULT_MODE
 
 
 log = logging.getLogger("price-store")
 
+# ────────────────────────────────────────────────────
+#  广期所贵金属交易时段（写死，不依赖数据库时间戳）
+# ────────────────────────────────────────────────────
+# 白盘：09:00-10:15(10:00起), 10:30-11:30, 13:30-15:00
+# 夜盘：21:00-次日 02:30（周一～四）/ 21:00-次日 01:00（周日）
+# 5min 槽：10:00 / 10:05 / … / 15:00（共 61 格）
+# 15min 槽：10:00 / 10:15 / … / 15:00（共 21 格）
+# 1hour  槽：10:00 / 11:00 / … / 15:00（共 6 格）
+#
+# 图表只展示"今天"（白盘）或"昨夜"（夜盘），即最近一个完整交易时段。
+# 查询时用固定时间轴，数据库只提供价格填充，不提供时间。
 
-# ────────────────────────────────────────────────────
-#  工具函数
-# ────────────────────────────────────────────────────
+DAY_SESSION_START = 10  # 白盘起始整点（小时）
+DAY_SESSION_END   = 15  # 白盘结束（不含，当日15:00截止）
+DAY_FIRST_SLOT    = 10  # 5min 第一个槽
+
+NIGHT_START = 21  # 夜盘起始（小时）
+# 夜盘结束：周一～四=02:30（次日），周日=01:00（次日）
+
+
 def _is_trading_time() -> bool:
     now = datetime.now()
     h, t = now.hour, now.hour * 60 + now.minute
@@ -43,23 +60,78 @@ def _align_to_5min(dt: datetime) -> datetime:
     return dt.replace(minute=(dt.minute // 5) * 5, second=0, microsecond=0)
 
 
-def _generate_fixed_slots(end_dt: datetime, interval_min: int, count: int):
+def _today_day_session_slots(interval_min: int) -> list[datetime]:
+    """
+    生成今天白盘所有固定时间槽（从 10:00 到 15:00）
+    interval_min: 5 | 15 | 60
+    """
+    now = datetime.now(timezone.utc).astimezone()
+    today = now.date()
     slots = []
-    current = _align_to_5min(end_dt)
-    if interval_min == 15:
-        current = current.replace(minute=(current.minute // 15) * 15)
-    elif interval_min == 60:
-        current = current.replace(minute=0)
-    for _ in range(count):
+    current = datetime(today.year, today.month, today.day,
+                       DAY_FIRST_SLOT, 0, 0)
+    end = datetime(today.year, today.month, today.day,
+                   DAY_SESSION_END, 0, 0)
+    while current < end:
         slots.append(current)
-        current -= timedelta(minutes=interval_min)
-    return list(reversed(slots))
+        current += timedelta(minutes=interval_min)
+    return slots
 
 
-# ────────────────────────────────────────────────────
-#  单例守卫（防止模块被重复 import 创建多个实例）
-# ────────────────────────────────────────────────────
-_store_instance: "PriceStore | None" = None
+def _last_night_session_slots(interval_min: int) -> list[datetime]:
+    """
+    生成昨夜（上一个非交易日）夜盘所有固定时间槽（从 21:00 到次日凌晨）
+    interval_min: 5 | 15 | 60
+    """
+    now = datetime.now(timezone.utc).astimezone()
+    today = now.date()
+
+    # 找到上一个有夜盘的日期
+    # 周一 → 上周五，周二～五 → 前一天，周日 → 上周五
+    weekday = today.weekday()
+    if weekday == 0:       # 周一
+        prev_night = today - timedelta(days=3)
+    elif weekday == 6:     # 周日
+        prev_night = today - timedelta(days=2)
+    else:
+        prev_night = today - timedelta(days=1)
+
+    slots = []
+    # 夜盘从 prev_night 当天 21:00 开始
+    current = datetime(prev_night.year, prev_night.month, prev_night.day,
+                       NIGHT_START, 0, 0)
+    # 夜盘结束时间（周一～四 次日02:30，周日 次日01:00）
+    if weekday == 6:       # 周日
+        end_hour, end_min = 1, 0   # 次日 01:00
+    else:
+        end_hour, end_min = 2, 30  # 次日 02:30
+    end = datetime(prev_night.year, prev_night.month, prev_night.day,
+                   end_hour, end_min, 0)
+    end += timedelta(days=1)
+
+    while current <= end:
+        slots.append(current)
+        current += timedelta(minutes=interval_min)
+    return slots
+
+
+def _current_session_slots(interval_min: int) -> list[datetime]:
+    """返回当前交易日（今天白盘或昨夜夜盘）的所有固定时间槽"""
+    now = datetime.now(timezone.utc).astimezone()
+    h = now.hour
+
+    if h >= NIGHT_START or h < 15:
+        # 夜间段：可能显示昨夜或今天白盘（取决于时间）
+        if h >= NIGHT_START:
+            # 21点后：显示今天白盘（若已结束）或昨夜（若白盘未开始）
+            if h >= 15 and h < NIGHT_START:
+                return _last_night_session_slots(interval_min)
+            return _today_day_session_slots(interval_min)
+        # 凌晨～14:59：显示昨夜
+        return _last_night_session_slots(interval_min)
+    else:
+        # 15:00～20:59：显示今天白盘
+        return _today_day_session_slots(interval_min)
 
 
 # ────────────────────────────────────────────────────
@@ -75,19 +147,17 @@ class PriceStore:
         return super().__new__(cls)
 
     def __init__(self):
-        # 如果不是 freshly created（__new__ 返回已有实例），跳过所有初始化
         if PriceStore._instance is not None:
             return
         PriceStore._instance = self
 
         self._lock: dict = {}
         self._lock["main"] = threading.RLock()
-        self._latest:  dict[str, dict] = {}
-        self._prev:    dict[str, float] = {}
+        self._latest: dict[str, dict] = {}
+        self._prev:   dict[str, float] = {}
         self._symbols: list[str] = list(SYMBOLS)
 
-        # 采样模式
-        self._mode    = DEFAULT_MODE
+        self._mode     = DEFAULT_MODE
         self._interval = 0 if DEFAULT_MODE == "竞标" else SAMPLE_INTERVAL_SEC
         self._last_sample_time: dict[str, float] = {}
 
@@ -96,28 +166,25 @@ class PriceStore:
         self._db_ok: bool = True
         self._init_db()
 
-        # 写入队列
         self._write_queue: list[tuple] = []
         self._write_lock   = threading.Lock()
 
-        # 后台 writer 线程
         self._writer_thread = threading.Thread(
             target=self._writer_loop, daemon=True, name="writer-loop"
         )
         self._writer_thread.start()
 
-        # 统计计数器（实例变量，不是类变量）
+        # 统计（实例变量）
         self._update_count = 0
         self._sample_count = 0
         self._flush_ok     = 0
         self._flush_fail   = 0
 
-        log.info("PriceStore 初始化完成，模式=%s，PG=%s", self._mode, self._db_ok)
+        log.info("PriceStore 初始化，模式=%s，PG=%s", self._mode, self._db_ok)
 
-    # ── PG 连接池 ──────────────────────────────────
+    # ── PG 连接池 ─────────────────────────────────
 
     def _pg_get(self):
-        """从连接池获取连接，失败返回 None"""
         if not self._db_ok or self._cp is None:
             return None
         try:
@@ -127,7 +194,6 @@ class PriceStore:
             return None
 
     def _pg_put(self, conn):
-        """归还连接到连接池"""
         if conn and self._cp:
             with suppress(Exception):
                 self._cp.putconn(conn)
@@ -170,7 +236,7 @@ class PriceStore:
             self._db_ok = False
             return False
 
-    # ── 后台 writer ─────────────────────────────────
+    # ── 后台 writer ───────────────────────────────
 
     def _writer_loop(self):
         while True:
@@ -192,7 +258,7 @@ class PriceStore:
             return
         conn = self._pg_get()
         if conn is None:
-            log.warning("PG 连接失败，%d 条数据暂存等待重试", len(batch))
+            log.warning("PG 连接失败，%d 条暂存等待重试", len(batch))
             with self._write_lock:
                 self._write_queue = batch + self._write_queue
             return
@@ -209,7 +275,6 @@ class PriceStore:
                 )
             conn.commit()
             self._flush_ok += len(batch)
-            log.info("PG flush 成功: %d 条", len(batch))
         except Exception as e:
             log.warning("PG 批量写入失败: %s", e)
             with suppress(Exception):
@@ -230,39 +295,26 @@ class PriceStore:
             with conn.cursor() as cur:
                 for sym in self._symbols:
                     cur.execute(
-                        "SELECT COUNT(*) FROM price_history WHERE symbol=%s",
-                        (sym,),
+                        """DELETE FROM price_history
+                           WHERE dt < NOW() - INTERVAL '%d days'""",
+                        (KEEP_DAYS,),
                     )
-                    count = cur.fetchone()[0]
-                    if count > KEEP_RECORDS:
-                        excess = count - KEEP_RECORDS
-                        cur.execute(
-                            """DELETE FROM price_history
-                               WHERE id IN (
-                                   SELECT id FROM price_history
-                                   WHERE symbol=%s
-                                   ORDER BY dt ASC
-                                   LIMIT %s
-                               )""",
-                            (sym, excess),
-                        )
-                        log.info("PG 清理 %s 超量 %d 条", sym, excess)
+                    log.info("PG 清理 %s 过期数据", sym)
                 conn.commit()
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
         finally:
             self._pg_put(conn)
 
-    # ── 行情更新 ──────────────────────────────────
+    # ── 行情更新 ─────────────────────────────────
 
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
         self._update_count += 1
 
-        # 竞标模式直接写内存，不采样
         if self._mode == "竞标":
             with self._lock["main"]:
-                prev_price = self._prev.get(symbol)
+                prev = self._prev.get(symbol)
                 self._prev[symbol] = _nan(price)
                 self._latest[symbol] = {
                     "symbol": symbol,
@@ -270,17 +322,15 @@ class PriceStore:
                     "price": _nan(price),
                     "volume": int(volume),
                     "dt": dt,
-                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
                     "is_trading": _is_trading_time(),
                 }
             return
 
-        # 日常模式：检查采样间隔（只在锁外检查一次）
         now = time.time()
         if self._interval > 0 and (now - self._last_sample_time.get(symbol, 0.0)) < self._interval:
-            # 更新内存数据但不采样
             with self._lock["main"]:
-                prev_price = self._prev.get(symbol)
+                prev = self._prev.get(symbol)
                 self._prev[symbol] = _nan(price)
                 self._latest[symbol] = {
                     "symbol": symbol,
@@ -288,16 +338,14 @@ class PriceStore:
                     "price": _nan(price),
                     "volume": int(volume),
                     "dt": dt,
-                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
                     "is_trading": _is_trading_time(),
                 }
             return
 
-        # 需要采样
         with self._lock["main"]:
-            # 二次确认（防止锁竞争导致重复采样）
             if self._interval > 0 and (time.time() - self._last_sample_time.get(symbol, 0.0)) < self._interval:
-                prev_price = self._prev.get(symbol)
+                prev = self._prev.get(symbol)
                 self._prev[symbol] = _nan(price)
                 self._latest[symbol] = {
                     "symbol": symbol,
@@ -305,17 +353,14 @@ class PriceStore:
                     "price": _nan(price),
                     "volume": int(volume),
                     "dt": dt,
-                    "change": round(_nan(price) - prev_price, 2) if prev_price is not None else 0,
+                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
                     "is_trading": _is_trading_time(),
                 }
                 return
             self._last_sample_time[symbol] = time.time()
 
-            prev_price = self._prev.get(symbol)
-            change = None
-            if prev_price is not None and prev_price != 0:
-                change = round(_nan(price) - prev_price, 2)
-
+            prev = self._prev.get(symbol)
+            change = round(_nan(price) - prev, 2) if prev is not None else None
             self._latest[symbol] = {
                 "symbol": symbol,
                 "instrument_id": instrument_id,
@@ -327,11 +372,10 @@ class PriceStore:
             }
             self._prev[symbol] = _nan(price)
 
-        # 采样数据入队（锁外操作队列）
         dt_parsed = self._parse_dt(dt)
-        aligned_dt = _align_to_5min(dt_parsed)
+        aligned = _align_to_5min(dt_parsed)
         with self._write_lock:
-            self._write_queue.append((symbol, _nan(price), int(volume), aligned_dt))
+            self._write_queue.append((symbol, _nan(price), int(volume), aligned))
         self._sample_count += 1
 
     def _parse_dt(self, dt_str: str) -> datetime:
@@ -345,7 +389,7 @@ class PriceStore:
             except Exception:
                 return datetime.now(timezone.utc)
 
-    # ── 模式控制 ──────────────────────────────────
+    # ── 模式控制 ─────────────────────────────────
 
     @property
     def mode_info(self) -> dict:
@@ -358,10 +402,9 @@ class PriceStore:
             self._mode = mode
             self._interval = 0 if mode == "竞标" else SAMPLE_INTERVAL_SEC
             self._last_sample_time = {}
-        log.info("采样模式切换: %s", mode)
         return {"ok": True, "mode": self._mode, "interval": self._interval}
 
-    # ── 查询 ──────────────────────────────────────
+    # ── 查询 ─────────────────────────────────────
 
     @property
     def latest(self) -> dict[str, dict]:
@@ -375,95 +418,71 @@ class PriceStore:
     def get_history(self, symbol: str,
                     interval_: str = "5min",
                     limit: int = 200) -> list[dict]:
-        if not self._db_ok:
-            return []
-        interval_min = {"5min": 5, "15min": 15, "1hour": 60}.get(interval_, 5)
+        """
+        按固定交易时段时间轴返回数据。
+        时间轴与数据库时间戳无关：
+          - 5min：10:00→15:00，每5分钟一格
+          - 15min：10:00→15:00，每15分钟一格
+          - 1hour：10:00→15:00，每小时一格
+        每个槽用数据库中离该整点最近的价格填充。
+        """
+        interval_map = {"5min": 5, "15min": 15, "1hour": 60}
+        interval_min = interval_map.get(interval_, 5)
+
+        # 固定时间轴（写死）
+        slots = _current_session_slots(interval_min)
+
+        # 截取到 limit
+        if len(slots) > limit:
+            slots = slots[-limit:]
+
+        if not self._db_ok or not slots:
+            return [{"datetime": s.isoformat(), "price": None, "symbol": symbol} for s in slots]
+
+        # 从数据库获取该品种最近30日数据（用于填充）
+        conn = self._pg_get()
+        if conn is None:
+            return [{"datetime": s.isoformat(), "price": None, "symbol": symbol} for s in slots]
+
         try:
-            conn = self._pg_get()
-            if conn is None:
-                return []
-            now = datetime.now(timezone.utc)
-            slots = _generate_fixed_slots(now, interval_min, limit)
-            if not slots:
-                self._pg_put(conn)
-                return []
             with conn.cursor() as cur:
                 cur.execute(
                     """SELECT price, dt FROM price_history
-                       WHERE symbol = %s AND dt >= %s
+                       WHERE symbol = %s
                        ORDER BY dt ASC""",
-                    (symbol, slots[0] - timedelta(minutes=interval_min)),
+                    (symbol,),
                 )
-                db_rows = cur.fetchall()
+                rows = cur.fetchall()
+        finally:
             self._pg_put(conn)
 
-            result = []
-            db_idx = 0
-            last_price = None
-            for slot in slots:
-                best_price = None
-                best_diff = timedelta.max
-                while db_idx < len(db_rows):
-                    price, dt = db_rows[db_idx]
-                    diff = abs(dt - slot)
-                    if diff < best_diff and diff <= timedelta(minutes=interval_min / 2):
-                        best_diff = diff
-                        best_price = float(price)
-                        last_price = best_price
-                    elif dt > slot + timedelta(minutes=interval_min / 2):
-                        break
-                    db_idx += 1
-                if best_price is None:
-                    best_price = last_price
-                if best_price is not None:
-                    result.append({"datetime": slot.isoformat(), "price": best_price, "symbol": symbol})
-            return result
-        except Exception as e:
-            log.warning("查询历史数据失败: %s", e)
-            return []
+        # 用数据库数据填充固定时间轴
+        # 找每个槽最近的记录
+        result = []
+        last_price = None
+
+        for slot in slots:
+            best_price = None
+            best_diff  = timedelta.max
+
+            for price, dt in rows:
+                diff = abs(dt.replace(tzinfo=None) - slot.replace(tzinfo=None))
+                if diff < best_diff and diff <= timedelta(minutes=interval_min):
+                    best_diff  = diff
+                    best_price = float(price)
+
+            if best_price is not None:
+                last_price = best_price
+
+            result.append({
+                "datetime": slot.strftime("%Y-%m-%d %H:%M"),
+                "price":    last_price,
+                "symbol":   symbol,
+            })
+
+        return result
 
     def debug_slot_matching(self, symbol: str,
                            interval_: str = "5min",
                            limit: int = 20) -> dict:
-        interval_min = {"5min": 5, "15min": 15, "1hour": 60}.get(interval_, 5)
-        if not self._db_ok:
-            return {"error": "数据库未连接"}
-        try:
-            conn = self._pg_get()
-            if conn is None:
-                return {"error": "数据库连接失败"}
-            now = datetime.now(timezone.utc)
-            slots = _generate_fixed_slots(now, interval_min, limit)
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id, price, dt, created_at FROM price_history WHERE symbol=%s ORDER BY dt ASC",
-                    (symbol,),
-                )
-                raw_rows = cur.fetchall()
-            self._pg_put(conn)
-            all_prices = [float(r[1]) for r in raw_rows]
-            all_dts = [r[2] for r in raw_rows]
-            slot_results = []
-            for slot in slots:
-                best_idx, best_diff = -1, timedelta.max
-                for i, dt in enumerate(all_dts):
-                    diff = abs(dt - slot)
-                    if diff < best_diff and diff <= timedelta(minutes=interval_min / 2):
-                        best_diff = diff
-                        best_idx = i
-                if best_idx >= 0:
-                    slot_results.append({
-                        "slot": slot.isoformat(), "matched": True,
-                        "diff_minutes": round(best_diff.total_seconds() / 60, 1),
-                        "matched_price": all_prices[best_idx],
-                        "matched_dt": all_dts[best_idx].isoformat(),
-                    })
-                else:
-                    slot_results.append({"slot": slot.isoformat(), "matched": False})
-            return {
-                "symbol": symbol, "interval": interval_, "raw_data_count": len(raw_rows),
-                "slots": slot_results,
-            }
-        except Exception as e:
-            log.warning("debug_slot_matching 失败: %s", e)
-            return {"error": str(e)}
+        return {"info": "时间轴已改为固定生成，无需此诊断接口"}
