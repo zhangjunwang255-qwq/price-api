@@ -272,12 +272,11 @@ class PriceStore:
         try:
             conn = self._pg_conn()
             with conn.cursor() as cur:
-                for sym in self._symbols:
-                    cur.execute(
-                        f"DELETE FROM price_history WHERE dt < NOW() - INTERVAL '30 days'",
-                    )
-                conn.commit()
-            log.info("PG 清理完成")
+                cur.execute("DELETE FROM price_history WHERE dt < NOW() - INTERVAL '30 days'")
+                deleted = cur.rowcount
+            conn.commit()
+            if deleted:
+                log.info("PG 清理完成: %d 条", deleted)
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
         finally:
@@ -291,52 +290,27 @@ class PriceStore:
                price: float, volume: int, dt: str):
         self._update_count += 1
 
-        if self._mode == "竞标":
-            with self._lock["main"]:
-                prev = self._prev.get(symbol)
-                self._prev[symbol] = _nan(price)
-                self._latest[symbol] = {
-                    "symbol": symbol,
-                    "instrument_id": instrument_id,
-                    "price": _nan(price),
-                    "volume": int(volume),
-                    "dt": dt,
-                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
-                    "is_trading": _is_trading_time(),
-                }
-            return
-
-        now = time.time()
-        if self._interval > 0 and (now - self._last_sample_time.get(symbol, 0.0)) < self._interval:
-            with self._lock["main"]:
-                prev = self._prev.get(symbol)
-                self._prev[symbol] = _nan(price)
-                self._latest[symbol] = {
-                    "symbol": symbol,
-                    "instrument_id": instrument_id,
-                    "price": _nan(price),
-                    "volume": int(volume),
-                    "dt": dt,
-                    "change": round(_nan(price) - prev, 2) if prev is not None else 0,
-                    "is_trading": _is_trading_time(),
-                }
-            return
-
+        # ── 更新最新价（所有模式都做） ──
         with self._lock["main"]:
-            self._last_sample_time[symbol] = time.time()
-
             prev = self._prev.get(symbol)
-            change = round(_nan(price) - prev, 2) if prev is not None else None
+            self._prev[symbol] = _nan(price)
             self._latest[symbol] = {
                 "symbol": symbol,
                 "instrument_id": instrument_id,
                 "price": _nan(price),
                 "volume": int(volume),
                 "dt": dt,
-                "change": change,
+                "change": round(_nan(price) - prev, 2) if prev is not None else 0,
                 "is_trading": _is_trading_time(),
             }
-            self._prev[symbol] = _nan(price)
+
+        # ── 采样判断（竞标=interval=0，每次都采样；日常=按间隔） ──
+        now = time.time()
+        if self._interval > 0 and (now - self._last_sample_time.get(symbol, 0.0)) < self._interval:
+            return  # 日常模式间隔未到，跳过采样
+
+        with self._lock["main"]:
+            self._last_sample_time[symbol] = time.time()
 
         dt_parsed = self._parse_dt(dt)
         aligned = _align_to_5min(dt_parsed)
