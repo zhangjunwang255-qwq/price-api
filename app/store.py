@@ -102,9 +102,59 @@ class PriceStore:
                 """)
             conn.commit()
             log.info("PostgreSQL price_history 表就绪（原始 5 分钟数据）")
+
+            # 自动修复：检测并修复时间戳问题
+            self._fix_timestamps_if_needed(conn)
+
         except Exception as e:
             log.warning("PostgreSQL 初始化失败: %s", e)
             self._db_ok = False
+
+    def _fix_timestamps_if_needed(self, conn):
+        """检测并修复时间戳问题（所有记录时间相同）"""
+        try:
+            with conn.cursor() as cur:
+                # 检查每个品种的时间范围
+                cur.execute("""
+                    SELECT symbol, COUNT(*), MIN(dt), MAX(dt)
+                    FROM price_history
+                    GROUP BY symbol
+                """)
+                rows = cur.fetchall()
+
+                for symbol, count, min_dt, max_dt in rows:
+                    if count <= 1:
+                        continue
+                    if min_dt == max_dt:
+                        log.warning("%s 检测到时间戳问题: %d 条记录时间相同 (%s)，开始修复...",
+                                    symbol, count, min_dt)
+
+                        # 修复：根据 created_at 重新生成 dt
+                        cur.execute("""
+                            UPDATE price_history
+                            SET dt = created_at
+                            WHERE symbol = %s AND created_at IS NOT NULL
+                        """, (symbol,))
+
+                        # 如果 created_at 也不对，按 id 顺序生成递增时间
+                        cur.execute("""
+                            WITH ranked AS (
+                                SELECT id, symbol,
+                                    NOW() - INTERVAL '5 minutes' * (ROW_NUMBER() OVER (ORDER BY id DESC) - 1) as new_dt
+                                FROM price_history
+                                WHERE symbol = %s
+                            )
+                            UPDATE price_history ph
+                            SET dt = ranked.new_dt
+                            FROM ranked
+                            WHERE ph.id = ranked.id AND ph.symbol = ranked.symbol
+                        """, (symbol,))
+
+                        conn.commit()
+                        log.info("%s 时间戳修复完成", symbol)
+
+        except Exception as e:
+            log.warning("时间戳自动修复失败: %s", e)
 
     # ── 后台写入 ─────────────────────────────────────
 
