@@ -453,8 +453,12 @@ async function loadRcChart(sym, interval) {
 
     c.data.labels = recs.map(r => {
       const d = new Date(r.datetime);
-      // 显示月-日 时:分，跨天时能区分
-      return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      // 5min/15min 显示 HH:MM（24小时制）；1hour 显示 MM-DD HH:MM
+      const hm = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      if (interval === "1hour") {
+        return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${hm}`;
+      }
+      return hm;
     });
     c.data.datasets[0].data = recs.map(r => r.price);
     loading.style.display = "none";

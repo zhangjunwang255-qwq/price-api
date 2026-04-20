@@ -62,13 +62,15 @@ def start_tqsdk(user: str, password: str, store, app_state):
                         app_state.error  = str(e)
                         break  # 跳出内层，进入外层重连
 
+                    # 使用服务器本地时间（避免TqSdk返回 stale 时间）
+                    server_now = time.strftime("%Y-%m-%d %H:%M:%S")
                     for sym, q in quotes.items():
                         store.update(
                             symbol        = sym,
                             instrument_id = q.instrument_id,
                             price         = q.last_price,
                             volume        = q.volume,
-                            dt            = q.datetime,
+                            dt            = server_now,
                         )
 
                     # WebSocket 广播
