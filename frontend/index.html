@@ -479,6 +479,51 @@ function initJbCharts() {
       document.getElementById("jb-pd-chart").getContext("2d"),
       "#818cf8", "钯金 PD"
     );
+  // 启动时加载历史数据预填（休市时保留最后走势图）
+  loadJbHistory("pt");
+  loadJbHistory("pd");
+}
+
+// 竞标模式：从 /history 加载5min历史，预填写死时间轴
+async function loadJbHistory(key) {
+  const c = jbCharts[key];
+  if (!c) return;
+  const symMap = { pt: "KQ.m@GFEX.pt", pd: "KQ.m@GFEX.pd" };
+  try {
+    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symMap[key])}&interval_=5min&limit=200`);
+    const json = await res.json();
+    const recs = json.records || [];
+    const axis = FIXED_AXIS["5min"];
+    if (!recs.length) {
+      // 无历史数据：显示空轴框架
+      c.data.labels = axis;
+      c.data.datasets[0].data = axis.map(() => null);
+      c.options.scales.x.ticks.maxTicksLimit = 12;
+      c.update("none");
+      return;
+    }
+    // 映射历史数据到固定时间槽
+    const priceMap = {};
+    for (const r of recs) {
+      const d = new Date(r.datetime);
+      const m5 = Math.floor(d.getMinutes() / 5) * 5;
+      const slotKey = `${String(d.getHours()).padStart(2, "0")}:${String(m5).padStart(2, "0")}`;
+      priceMap[slotKey] = r.price;  // 同槽取最新
+    }
+    let lastPrice = null;
+    const prices = axis.map(label => {
+      if (priceMap[label] != null) lastPrice = priceMap[label];
+      return lastPrice;
+    });
+    c.data.labels = axis;
+    c.data.datasets[0].data = prices;
+    c.options.scales.x.ticks.maxTicksLimit = 12;
+    c.update("none");
+    syncJbYRange(key);
+    document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
+  } catch (e) {
+    console.warn("loadJbHistory failed:", key, e);
+  }
 }
 
 function pushJbBuf(sym, price, t) {
@@ -493,6 +538,12 @@ function refreshJbChart(key) {
   const buf = jbBuf[key];
   const axis = FIXED_AXIS["5min"];
   if (!axis.length) return;
+
+  // 休市/无新数据：buf为空，但图表已有历史数据 → 保留不覆盖
+  if (!buf.length) {
+    const hasData = c.data.datasets[0].data.some(v => v != null);
+    if (hasData) return;
+  }
 
   // 将 buf 中的实时点映射到最近5分钟槽（取每个槽内最后一个价格）
   const slotMap = {};
