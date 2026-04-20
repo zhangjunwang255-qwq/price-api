@@ -326,6 +326,46 @@
 const API     = window.location.origin;
 const MAX_PTS = 80;
 
+// ──────────────────────────────────────────────────────────────────
+//  写死时间轴（广期所三节：09:00-10:15 / 10:30-11:30 / 13:30-15:00）
+// ──────────────────────────────────────────────────────────────────
+const TRADING_SECTIONS = [
+  { h: 9,  m: 0,  eh: 10, em: 15 },
+  { h: 10, m: 30, eh: 11, em: 30 },
+  { h: 13, m: 30, eh: 15, em: 0  },
+];
+
+function _genSlots(startH, startM, endH, endM, stepMin) {
+  const slots = [];
+  let ch = startH, cm = startM;
+  while (ch < endH || (ch === endH && cm < endM)) {
+    slots.push({ h: ch, m: cm });
+    cm += stepMin;
+    if (cm >= 60) { ch += cm / 60 | 0; cm %= 60; }
+  }
+  return slots;
+}
+
+function _fmtHM(h, m) {
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+}
+
+function buildFixedAxis(interval) {
+  const stepMap = { "5min": 5, "15min": 15, "1hour": 60 };
+  const stepMin = stepMap[interval] || 5;
+  const slots = [];
+  for (const sec of TRADING_SECTIONS) {
+    slots.push(..._genSlots(sec.h, sec.m, sec.eh, sec.em, stepMin));
+  }
+  return slots.map(s => _fmtHM(s.h, s.m));
+}
+
+const FIXED_AXIS = {
+  "5min":   buildFixedAxis("5min"),
+  "15min":  buildFixedAxis("15min"),
+  "1hour":  buildFixedAxis("1hour"),
+};
+
 // ── 竞标模式：铂金/钯金各自缓冲 ──────────────────────
 const jbBuf = { pt: [], pd: [] };
 const jbCharts = { pt: null, pd: null };
@@ -486,7 +526,7 @@ function initRcCharts() {
 }
 
 async function loadRcChart(sym, interval) {
-  const key     = `${sym}-${interval}`;
+  const key      = `${sym}-${interval}`;
   const canvasId = `rc-${sym}-${interval}`;
   const loadId   = `rc-${sym}-${interval}-loading`;
   const countId  = `rc-${sym}-${interval}-count`;
@@ -503,41 +543,38 @@ async function loadRcChart(sym, interval) {
     const recs = json.records || [];
 
     if (recs.length === 0) {
-      loading.textContent = "暂无数据（日常模式下等待数据积累）";
+      // 纯前端时间轴，无数据时显示空图
+      c.data.labels  = FIXED_AXIS[interval];
+      c.data.datasets[0].data = FIXED_AXIS[interval].map(() => null);
+      loading.style.display = "none";
+      canvas.style.display  = "block";
+      c.update("none");
+      document.getElementById(countId).textContent = "0 条";
       return;
     }
 
-    // 日期显示规则：5min/15min 每3天显示一次日期，1hour 每10天显示一次
-    let lastDateLabel = "";
-    c.data.labels = recs.map((r, idx) => {
+    // 用 API 数据填充写死时间轴（时间槽 → 最近邻价格）
+    const priceMap = {};
+    let lastPrice = null;
+    for (const r of recs) {
       const d = new Date(r.datetime);
-      const hm = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-      const md = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-
-      if (interval === "1hour") {
-        // 1hour: 每10天显示日期，或第一条
-        if (idx === 0 || d.getDate() % 10 === 0) {
-          const label = `${md} ${hm}`;
-          lastDateLabel = md;
-          return label;
-        }
-        return hm;
-      } else {
-        // 5min/15min: 每3天显示日期，或第一条
-        if (idx === 0 || d.getDate() % 3 === 0) {
-          const label = `${md} ${hm}`;
-          lastDateLabel = md;
-          return label;
-        }
-        return hm;
-      }
+      const key2 = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      priceMap[key2] = r.price;
+    }
+    lastPrice = null;
+    const prices = FIXED_AXIS[interval].map(label => {
+      if (priceMap[label] != null) lastPrice = priceMap[label];
+      return lastPrice;   // 无数据时用最近邻填充
     });
-    c.data.datasets[0].data = recs.map(r => r.price);
+
+    // 轴标签：5min/15min 只显示小时:分钟，日期省略（当前交易日）
+    c.data.labels  = FIXED_AXIS[interval];
+    c.data.datasets[0].data = prices;
     loading.style.display = "none";
     canvas.style.display  = "block";
     c.update("none");
     syncRcYRange(key);
-    document.getElementById(countId).textContent = `${recs.length} 条`;
+    document.getElementById(countId).textContent = `${prices.filter(v => v != null).length} 条`;
   } catch (e) {
     loading.textContent = "加载失败: " + e.message;
   }
