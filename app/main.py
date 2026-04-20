@@ -294,13 +294,25 @@ def debug_pg_schema():
 
 @app.get("/debug/migrate")
 def debug_migrate():
-    """一次性迁移：清理重复数据 → 加唯一约束"""
+    """一次性迁移：清理重复数据 → 加唯一约束（非 DEFERRABLE，兼容 ON CONFLICT）"""
     import psycopg2
     from .config import DATABASE_URL
     try:
         conn = psycopg2.connect(DATABASE_URL)
         try:
             with conn.cursor() as cur:
+                # 0. 先删旧的 deferrable 约束（如果有）
+                cur.execute("""
+                    SELECT conname FROM pg_constraint
+                    WHERE conrelid = 'price_history'::regclass
+                      AND contype = 'u'
+                """)
+                old_constraints = [r[0] for r in cur.fetchall()]
+                for cname in old_constraints:
+                    cur.execute(f"ALTER TABLE price_history DROP CONSTRAINT {cname}")
+                    log.info("删除旧约束: %s", cname)
+                conn.commit()
+
                 # 1. 删重复：保留每个 (symbol,dt) 的最大 ctid（最新一条）
                 cur.execute("""
                     DELETE FROM price_history a
@@ -313,16 +325,16 @@ def debug_migrate():
                 conn.commit()
                 log.info("清理重复数据: %d 条", deleted)
 
-                # 2. 加唯一约束
+                # 2. 加唯一约束（非 DEFERRABLE，ON CONFLICT 需要）
                 cur.execute("""
                     ALTER TABLE price_history
                     ADD CONSTRAINT price_history_symbol_dt_key
                     UNIQUE (symbol, dt)
-                    DEFERRABLE INITIALLY DEFERRED
                 """)
             conn.commit()
             return {"ok": True, "deleted_duplicates": deleted,
-                    "message": "约束添加成功，数据已清理"}
+                    "dropped_old_constraints": old_constraints,
+                    "message": "约束添加成功（非DEFERRABLE），数据已清理"}
         except psycopg2.errors.DuplicateObject:
             conn.rollback()
             return {"ok": True, "deleted_duplicates": 0,
