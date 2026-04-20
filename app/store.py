@@ -230,11 +230,18 @@ class PriceStore:
         if not dt_str:
             return datetime.now(timezone.utc)
         try:
+            # 尝试带微秒的格式 (TqSdk 原始格式)
             return datetime.strptime(dt_str[:23], "%Y-%m-%d %H:%M:%S.%f").replace(
                 tzinfo=timezone.utc
             )
         except Exception:
-            return datetime.now(timezone.utc)
+            try:
+                # 尝试不带微秒的格式 (strftime 格式)
+                return datetime.strptime(dt_str[:19], "%Y-%m-%d %H:%M:%S").replace(
+                    tzinfo=timezone.utc
+                )
+            except Exception:
+                return datetime.now(timezone.utc)
 
     # ── 模式控制 ──────────────────────────────────────
 
@@ -292,6 +299,13 @@ class PriceStore:
 
             if not rows:
                 return []
+
+            # Debug: 记录查询结果的时间范围
+            if rows:
+                log.debug("%s %s 查询到 %d 条，时间范围: %s ~ %s",
+                    symbol, interval_, len(rows),
+                    rows[-1][3] if rows[-1][3] else "N/A",
+                    rows[0][3] if rows[0][3] else "N/A")
 
             # 5min：直接返回
             if interval_ == "5min":
