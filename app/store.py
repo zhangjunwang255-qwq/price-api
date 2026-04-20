@@ -366,3 +366,85 @@ class PriceStore:
         except Exception as e:
             log.warning("查询历史数据失败: %s", e)
             return []
+
+    def debug_slot_matching(self, symbol: str,
+                           interval_: str = "5min",
+                           limit: int = 20) -> dict:
+        """诊断接口：返回每个固定时间槽及匹配详情"""
+        interval_map = {"5min": 5, "15min": 15, "1hour": 60}
+        interval_min = interval_map.get(interval_, 5)
+
+        if not self._db_ok:
+            return {"error": "数据库未连接"}
+
+        try:
+            conn = self._get_conn()
+            if conn is None:
+                return {"error": "数据库连接失败"}
+
+            now = datetime.now(timezone.utc)
+            slots = _generate_fixed_slots(now, interval_min, limit)
+
+            # 查询该品种所有原始数据
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT id, price, dt, created_at
+                    FROM price_history
+                    WHERE symbol = %s
+                    ORDER BY dt ASC
+                """, (symbol,))
+                raw_rows = cur.fetchall()
+
+            all_prices = [float(r[1]) for r in raw_rows]
+            all_dts = [r[2] for r in raw_rows]
+
+            slot_results = []
+            matched = 0
+            unmatched = 0
+
+            for slot in slots:
+                best_idx = -1
+                best_diff = timedelta.max
+
+                for i, dt in enumerate(all_dts):
+                    diff = abs(dt - slot)
+                    if diff < best_diff and diff <= timedelta(minutes=interval_min / 2):
+                        best_diff = diff
+                        best_idx = i
+
+                if best_idx >= 0:
+                    diff_min = best_diff.total_seconds() / 60
+                    slot_results.append({
+                        "slot": slot.isoformat(),
+                        "matched": True,
+                        "diff_minutes": round(diff_min, 1),
+                        "matched_price": all_prices[best_idx],
+                        "matched_dt": all_dts[best_idx].isoformat(),
+                        "raw_id": raw_rows[best_idx][0],
+                    })
+                    matched += 1
+                else:
+                    slot_results.append({
+                        "slot": slot.isoformat(),
+                        "matched": False,
+                        "diff_minutes": None,
+                        "matched_price": None,
+                        "matched_dt": None,
+                        "raw_id": None,
+                    })
+                    unmatched += 1
+
+            return {
+                "symbol": symbol,
+                "interval": interval_,
+                "interval_min": interval_min,
+                "total_slots": len(slots),
+                "matched": matched,
+                "unmatched": unmatched,
+                "raw_data_count": len(raw_rows),
+                "slots": slot_results,
+            }
+
+        except Exception as e:
+            log.warning("debug_slot_matching 失败: %s", e)
+            return {"error": str(e)}

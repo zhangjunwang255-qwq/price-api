@@ -190,6 +190,18 @@ def get_history(
     }
 
 
+@app.get("/debug/slots")
+def debug_slots(
+    symbol:   str  = Query(...,        description="品种，如 KQ.m@GFEX.pt"),
+    interval_: str = Query("5min",     description="间隔: 5min | 15min | 1hour"),
+    limit:    int  = Query(20,         ge=1, le=200),
+):
+    """诊断接口：显示每个固定时间槽及其匹配到的原始数据详情"""
+    if interval_ not in ("5min", "15min", "1hour"):
+        raise HTTPException(400, "无效 interval")
+    return store.debug_slot_matching(symbol, interval_, limit)
+
+
 @app.get("/symbols")
 def list_symbols():
     return {
