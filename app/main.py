@@ -202,6 +202,23 @@ def debug_slots(
     return store.debug_slot_matching(symbol, interval_, limit)
 
 
+@app.get("/debug/stats")
+def debug_stats():
+    """诊断接口：查看 update/采样/flush 计数器"""
+    s = store
+    return {
+        "update_calls":   s._update_count,
+        "samples_queued": s._sample_count,
+        "flush_ok":       s._flush_ok,
+        "flush_fail":     s._flush_fail,
+        "queue_len":      len(s._write_queue),
+        "mode":           s._mode,
+        "interval_sec":  s._interval,
+        "db_ok":          s._db_ok,
+        "symbols":        list(s._latest.keys()),
+    }
+
+
 @app.get("/symbols")
 def list_symbols():
     return {

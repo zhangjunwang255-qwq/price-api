@@ -168,8 +168,10 @@ class PriceStore:
                     batch,
                 )
             conn.commit()
+            self._flush_ok += len(batch)
         except Exception as e:
             log.warning("PG 批量写入失败: %s", e)
+            self._flush_fail += len(batch)
 
     def _cleanup(self):
         if not self._db_ok:
@@ -202,8 +204,16 @@ class PriceStore:
 
     # ── 写入（主线程调用）───────────────────────────────
 
+    # 调试计数器（部署后可删）
+    _update_count = 0
+    _sample_count = 0
+    _flush_ok = 0
+    _flush_fail = 0
+
     def update(self, symbol: str, instrument_id: str,
                price: float, volume: int, dt: str):
+        self._update_count += 1
+
         now = time.time()
         last = self._last_sample_time.get(symbol, 0.0)
 
@@ -245,6 +255,7 @@ class PriceStore:
 
             with self._write_lock:
                 self._write_queue.append((symbol, _nan(price), int(volume), aligned_dt))
+            self._sample_count += 1
 
     def _parse_dt(self, dt_str: str) -> datetime:
         if not dt_str:
