@@ -1,6 +1,6 @@
 """
 app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
-只存原始 5 分钟数据，15min / 1hour 在查询时从 5min 数据聚合得出
+日常模式：存储对齐到固定5分钟时间槽，查询时按固定时间槽返回
 """
 import os, threading, time, logging
 from collections import defaultdict
@@ -30,9 +30,38 @@ def _nan(v: float) -> float:
     return 0.0 if v != v else v
 
 
+def _align_to_5min(dt: datetime) -> datetime:
+    """对齐到5分钟时间槽（向下取整）"""
+    minute = (dt.minute // 5) * 5
+    return dt.replace(minute=minute, second=0, microsecond=0)
+
+
+def _generate_fixed_slots(end_dt: datetime, interval_min: int, count: int) -> list[datetime]:
+    """
+    生成固定时间槽列表（从 end_dt 向前推）
+    interval_min: 5, 15, 60
+    """
+    slots = []
+    current = _align_to_5min(end_dt)
+    # 对齐到 interval 的边界
+    if interval_min == 15:
+        # 对齐到 0, 15, 30, 45
+        current = current.replace(minute=(current.minute // 15) * 15)
+    elif interval_min == 60:
+        # 对齐到整点
+        current = current.replace(minute=0)
+
+    for _ in range(count):
+        slots.append(current)
+        current -= timedelta(minutes=interval_min)
+
+    return list(reversed(slots))
+
+
 class PriceStore:
     """
-    内存缓存最新行情 + PostgreSQL 持久化原始 5 分钟数据
+    内存缓存最新行情 + PostgreSQL 持久化
+    日常模式：存储对齐到5分钟时间槽
     """
 
     def __init__(self):
@@ -43,8 +72,8 @@ class PriceStore:
 
         # 采样模式控制
         self._mode             = "竞标"
-        self._interval         = 0           # 0=实时, 300=5分钟
-        self._last_sample_time: dict[str, float] = {}  # 每个品种独立计时
+        self._interval         = 0
+        self._last_sample_time: dict[str, float] = {}
 
         # PostgreSQL
         self._conn: psycopg2.extensions.connection | None = None
@@ -52,7 +81,7 @@ class PriceStore:
 
         self._init_db()
 
-        # 后台写入线程（批量写 5min 数据）
+        # 后台写入线程
         self._write_queue: list[tuple] = []
         self._write_lock   = threading.Lock()
         self._writer_thread = threading.Thread(target=self._writer_loop, daemon=True)
@@ -93,7 +122,8 @@ class PriceStore:
                         price      NUMERIC(16,4) NOT NULL,
                         volume     BIGINT      NOT NULL,
                         dt         TIMESTAMPTZ NOT NULL,
-                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                        UNIQUE(symbol, dt)
                     )
                 """)
                 cur.execute("""
@@ -101,103 +131,47 @@ class PriceStore:
                     ON price_history (symbol, dt DESC)
                 """)
             conn.commit()
-            log.info("PostgreSQL price_history 表就绪（原始 5 分钟数据）")
-
-            # 自动修复：检测并修复时间戳问题
-            self._fix_timestamps_if_needed(conn)
-
+            log.info("PostgreSQL price_history 表就绪")
         except Exception as e:
             log.warning("PostgreSQL 初始化失败: %s", e)
             self._db_ok = False
 
-    def _fix_timestamps_if_needed(self, conn):
-        """检测并修复时间戳问题（所有记录时间相同）"""
-        try:
-            with conn.cursor() as cur:
-                # 检查每个品种的时间范围
-                cur.execute("""
-                    SELECT symbol, COUNT(*), MIN(dt), MAX(dt)
-                    FROM price_history
-                    GROUP BY symbol
-                """)
-                rows = cur.fetchall()
-
-                for symbol, count, min_dt, max_dt in rows:
-                    if count <= 1:
-                        continue
-                    if min_dt == max_dt:
-                        log.warning("%s 检测到时间戳问题: %d 条记录时间相同 (%s)，开始修复...",
-                                    symbol, count, min_dt)
-
-                        # 修复：根据 created_at 重新生成 dt
-                        cur.execute("""
-                            UPDATE price_history
-                            SET dt = created_at
-                            WHERE symbol = %s AND created_at IS NOT NULL
-                        """, (symbol,))
-
-                        # 如果 created_at 也不对，按 id 顺序生成递增时间
-                        cur.execute("""
-                            WITH ranked AS (
-                                SELECT id, symbol,
-                                    NOW() - INTERVAL '5 minutes' * (ROW_NUMBER() OVER (ORDER BY id DESC) - 1) as new_dt
-                                FROM price_history
-                                WHERE symbol = %s
-                            )
-                            UPDATE price_history ph
-                            SET dt = ranked.new_dt
-                            FROM ranked
-                            WHERE ph.id = ranked.id AND ph.symbol = ranked.symbol
-                        """, (symbol,))
-
-                        conn.commit()
-                        log.info("%s 时间戳修复完成", symbol)
-
-        except Exception as e:
-            log.warning("时间戳自动修复失败: %s", e)
-
     # ── 后台写入 ─────────────────────────────────────
 
     def _writer_loop(self):
-        """每 2 秒批量写入 + 顺带超量清理"""
         while True:
-            time.sleep(2.0)
-            with self._write_lock:
-                if not self._write_queue:
-                    continue
-                batch = list(self._write_queue)
-                self._write_queue.clear()
+            time.sleep(2)
+            self._flush()
+            self._cleanup()
 
-            self._flush(batch)
-            self._cleanup_if_needed()
-
-    def _flush(self, batch: list[tuple]):
-        if not batch or not self._db_ok:
+    def _flush(self):
+        if not self._db_ok:
+            return
+        with self._write_lock:
+            batch = self._write_queue.copy()
+            self._write_queue.clear()
+        if not batch:
             return
         try:
             conn = self._get_conn()
+            if conn is None:
+                return
             with conn.cursor() as cur:
-                from psycopg2.extras import execute_values
-                execute_values(
-                    cur,
-                    """INSERT INTO price_history (symbol, price, volume, dt, created_at)
-                       VALUES %s""",
-                    [
-                        (sym, price, vol, dt, datetime.now(timezone.utc))
-                        for sym, price, vol, dt in batch
-                    ],
+                # UPSERT: 同一时间槽只保留最新值
+                cur.executemany(
+                    """
+                    INSERT INTO price_history (symbol, price, volume, dt)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (symbol, dt) DO UPDATE
+                    SET price = EXCLUDED.price, volume = EXCLUDED.volume
+                    """,
+                    batch,
                 )
             conn.commit()
-            log.debug("PG 写入 %d 条", len(batch))
         except Exception as e:
-            log.warning("PG 写入失败: %s", e)
-            try:
-                conn.rollback()
-            except Exception:
-                pass
+            log.warning("PG 批量写入失败: %s", e)
 
-    def _cleanup_if_needed(self):
-        """超量时清理最老的 5min 记录"""
+    def _cleanup(self):
         if not self._db_ok:
             return
         try:
@@ -221,10 +195,7 @@ class PriceStore:
                                )""",
                             (sym, excess),
                         )
-                        log.info(
-                            "PG 清理 %s 超量 %d 条，剩余 %d 条",
-                            sym, excess, count - excess,
-                        )
+                        log.info("PG 清理 %s 超量 %d 条", sym, excess)
                 conn.commit()
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
@@ -236,57 +207,54 @@ class PriceStore:
         now = time.time()
         last = self._last_sample_time.get(symbol, 0.0)
 
-        # 日常模式：按 SAMPLE_INTERVAL_SEC 采样（每个品种独立计时）
         if self._interval > 0 and (now - last) < self._interval:
             return
 
         with self._lock:
-            # 双重检查
             last = self._last_sample_time.get(symbol, 0.0)
             if self._interval > 0 and (time.time() - last) < self._interval:
                 return
             self._last_sample_time[symbol] = time.time()
 
             prev_price = self._prev.get(symbol)
-            change     = None
+            change = None
             change_pct = None
             if prev_price is not None and prev_price != 0:
-                change     = round(price - prev_price, 2)
+                change = round(price - prev_price, 2)
                 change_pct = round(change / prev_price * 100, 4)
 
             record = {
-                "symbol":         symbol,
-                "instrument_id":  instrument_id,
-                "price":          _nan(price),
-                "volume":         int(volume),
-                "dt":             dt,
-                "change":         change,
-                "change_pct":     change_pct,
-                "is_trading":     _is_trading_time(),
+                "symbol": symbol,
+                "instrument_id": instrument_id,
+                "price": _nan(price),
+                "volume": int(volume),
+                "dt": dt,
+                "change": change,
+                "change_pct": change_pct,
+                "is_trading": _is_trading_time(),
             }
             self._latest[symbol] = record
-            self._prev[symbol]   = _nan(price)
+            self._prev[symbol] = _nan(price)
 
-            # 竞标模式 → 不落库
             if self._mode == "竞标":
                 return
 
-            # 日常模式 → 原始 5min 数据入队列
+            # 日常模式：对齐到5分钟时间槽
             dt_parsed = self._parse_dt(dt)
+            aligned_dt = _align_to_5min(dt_parsed)
+
             with self._write_lock:
-                self._write_queue.append((symbol, _nan(price), int(volume), dt_parsed))
+                self._write_queue.append((symbol, _nan(price), int(volume), aligned_dt))
 
     def _parse_dt(self, dt_str: str) -> datetime:
         if not dt_str:
             return datetime.now(timezone.utc)
         try:
-            # 尝试带微秒的格式 (TqSdk 原始格式)
             return datetime.strptime(dt_str[:23], "%Y-%m-%d %H:%M:%S.%f").replace(
                 tzinfo=timezone.utc
             )
         except Exception:
             try:
-                # 尝试不带微秒的格式 (strftime 格式)
                 return datetime.strptime(dt_str[:19], "%Y-%m-%d %H:%M:%S").replace(
                     tzinfo=timezone.utc
                 )
@@ -297,25 +265,20 @@ class PriceStore:
 
     def set_mode(self, mode: str) -> dict:
         if mode not in ("竞标", "日常"):
-            return {"ok": False, "error": "无效模式，可用: 竞标, 日常"}
+            return {"ok": False, "error": "无效模式"}
         with self._lock:
             self._mode = mode
             self._interval = 0 if mode == "竞标" else SAMPLE_INTERVAL_SEC
-            self._last_sample_time = {}  # 重置所有品种的计时
-            log.info("采样模式切换: %s (间隔 %d 秒)", mode, self._interval)
+            self._last_sample_time = {}
+            log.info("采样模式切换: %s", mode)
         return {"ok": True, "mode": self._mode, "interval": self._interval}
 
-    @property
-    def mode_info(self) -> dict:
-        with self._lock:
-            return {"mode": self._mode, "interval": self._interval}
-
-    # ── 读取 ─────────────────────────────────────────
+    # ── 查询 ──────────────────────────────────────────
 
     @property
     def latest(self) -> dict[str, dict]:
         with self._lock:
-            return dict(self._latest)
+            return self._latest.copy()
 
     @property
     def symbols(self) -> list[str]:
@@ -326,89 +289,71 @@ class PriceStore:
                     interval_: str = "5min",
                     limit: int = 200) -> list[dict]:
         """
-        从 PG 读取历史数据，支持查询时聚合
+        按固定时间槽查询历史数据
         interval_: '5min' | '15min' | '1hour'
-        5min:    直接返回原始数据
-        15min:   每 3 条原始数据聚合为 1 条（3 × 5min = 15min）
-        1hour:   每 12 条原始数据聚合为 1 条（12 × 5min = 60min）
+        返回固定时间槽，找最接近的数据填充
         """
         if not self._db_ok:
             return []
+
+        interval_min = {"5min": 5, "15min": 15, "1hour": 60}.get(interval_, 5)
+
         try:
             conn = self._get_conn()
-            with conn.cursor() as cur:
-                cur.execute(
-                    """SELECT symbol, price, volume, dt
-                       FROM price_history
-                       WHERE symbol = %s
-                       ORDER BY dt DESC
-                       LIMIT %s""",
-                    (symbol, limit * 12),   # 多取些，聚合后数量才够
-                )
-                rows = list(cur.fetchall())
-
-            if not rows:
+            if conn is None:
                 return []
 
-            # Debug: 记录查询结果的时间范围
-            if rows:
-                log.info("%s %s 查询到 %d 条，时间范围: %s ~ %s",
-                    symbol, interval_, len(rows),
-                    rows[-1][3] if rows[-1][3] else "N/A",
-                    rows[0][3] if rows[0][3] else "N/A")
+            # 生成固定时间槽（从当前时间向前推）
+            now = datetime.now(timezone.utc)
+            slots = _generate_fixed_slots(now, interval_min, limit)
 
-            # 5min：直接返回
-            if interval_ == "5min":
-                return self._format_rows(rows, limit)
+            if not slots:
+                return []
 
-            # 聚合
-            step = 3 if interval_ == "15min" else 12
-            groups = [rows[i:i+step] for i in range(0, len(rows), step)]
+            # 查询该品种的所有数据（用于填充）
+            with conn.cursor() as cur:
+                cur.execute(
+                    """SELECT price, dt FROM price_history
+                       WHERE symbol = %s AND dt >= %s
+                       ORDER BY dt ASC""",
+                    (symbol, slots[0] - timedelta(minutes=interval_min))
+                )
+                db_rows = cur.fetchall()
 
-            aggregated = []
-            for group in groups:
-                if not group:
-                    continue
-                prices  = [float(r[1]) for r in group if r[1] is not None]
-                volumes = [int(r[2])   for r in group if r[2] is not None]
-                if not prices:
-                    continue
-                last_row = group[0]  # 取最新那条的时间戳
-                aggregated.append((
-                    last_row[0],
-                    round(sum(prices) / len(prices), 4),   # 平均价
-                    max(volumes) if volumes else 0,         # 最大成交量
-                    last_row[3],                            # 最新时间戳
-                ))
+            # 按时间槽填充数据
+            result = []
+            db_idx = 0
+            last_price = None
 
-            return self._format_rows(aggregated, limit)
+            for slot in slots:
+                # 找最接近该时间槽的数据
+                best_price = None
+                best_diff = timedelta.max
+
+                while db_idx < len(db_rows):
+                    price, dt = db_rows[db_idx]
+                    diff = abs(dt - slot)
+                    if diff < best_diff and diff <= timedelta(minutes=interval_min / 2):
+                        best_diff = diff
+                        best_price = float(price)
+                        last_price = best_price
+                    elif dt > slot + timedelta(minutes=interval_min / 2):
+                        break
+                    db_idx += 1
+
+                if best_price is None:
+                    best_price = last_price
+
+                if best_price is not None:
+                    result.append({
+                        "datetime": slot.isoformat(),
+                        "price": best_price,
+                        "symbol": symbol,
+                    })
+
+            log.info("%s %s 生成 %d 个固定时间槽", symbol, interval_, len(result))
+            return result
 
         except Exception as e:
-            log.warning("PG 查询失败: %s", e)
+            log.warning("查询历史数据失败: %s", e)
             return []
-
-    def _format_rows(self, rows: list, limit: int) -> list[dict]:
-        def fmt_dt(dt):
-            if not hasattr(dt, 'strftime'):
-                return str(dt)
-            # 返回带时区的 ISO 格式，前端能正确解析
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.isoformat()
-
-        return [
-            {
-                "symbol":   r[0],
-                "price":    float(r[1]),
-                "volume":   int(r[2]),
-                "datetime": fmt_dt(r[3]),
-            }
-            for r in reversed(rows[:limit])
-        ]
-
-    def close(self):
-        if self._conn and not self._conn.closed:
-            try:
-                self._conn.close()
-            except Exception:
-                pass

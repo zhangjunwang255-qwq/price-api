@@ -451,14 +451,30 @@ async function loadRcChart(sym, interval) {
       return;
     }
 
-    c.data.labels = recs.map(r => {
+    // 日期显示规则：5min/15min 每3天显示一次日期，1hour 每10天显示一次
+    let lastDateLabel = "";
+    c.data.labels = recs.map((r, idx) => {
       const d = new Date(r.datetime);
-      // 5min/15min 显示 HH:MM（24小时制）；1hour 显示 MM-DD HH:MM
       const hm = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+      const md = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
       if (interval === "1hour") {
-        return `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${hm}`;
+        // 1hour: 每10天显示日期，或第一条
+        if (idx === 0 || d.getDate() % 10 === 0) {
+          const label = `${md} ${hm}`;
+          lastDateLabel = md;
+          return label;
+        }
+        return hm;
+      } else {
+        // 5min/15min: 每3天显示日期，或第一条
+        if (idx === 0 || d.getDate() % 3 === 0) {
+          const label = `${md} ${hm}`;
+          lastDateLabel = md;
+          return label;
+        }
+        return hm;
       }
-      return hm;
     });
     c.data.datasets[0].data = recs.map(r => r.price);
     loading.style.display = "none";
