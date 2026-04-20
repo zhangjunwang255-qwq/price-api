@@ -330,6 +330,11 @@ const MAX_PTS = 80;
 const jbBuf = { pt: [], pd: [] };
 const jbCharts = { pt: null, pd: null };
 
+// ── Y轴统一配置：固定0.5间隔步长，水平参考线 ──────────
+const TICK_STEP = 0.5;   // Y轴刻度间隔（单位：元/克）
+
+function _roundToHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
+
 function makeLineChart(ctx, color, label) {
   return new Chart(ctx, {
     type: "line",
@@ -358,7 +363,7 @@ function makeLineChart(ctx, color, label) {
         },
         y: {
           grid: { color: "rgba(45,49,72,0.5)" },
-          ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(1) },
+          ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(2) },
         },
       },
       plugins: {
@@ -367,9 +372,59 @@ function makeLineChart(ctx, color, label) {
           backgroundColor: "#1a1d27", borderColor: "#2d3148", borderWidth: 1,
           titleColor: "#e2e4ea", bodyColor: "#9ca3af",
         },
+        // 绘制水平参考线（固定0.5间隔）
+        afterUpdate(chart) {
+          const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+          if (!y || y.min == null || y.max == null) return;
+          const yMin = _roundToHalf(y.min);
+          const yMax = _roundToHalf(y.max);
+          const gridColor = "rgba(45,49,72,0.45)";
+          ctx.save();
+          ctx.strokeStyle = gridColor;
+          ctx.lineWidth = 0.5;
+          ctx.setLineDash([4, 4]);
+          for (let v = yMin; v <= yMax + 0.001; v += TICK_STEP) {
+            const py = y.getPixelForValue(v);
+            if (py >= y.top && py <= y.bottom) {
+              ctx.beginPath();
+              ctx.moveTo(left, py);
+              ctx.lineTo(right, py);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+        },
       },
     },
   });
+}
+
+// 竞标模式切图后同步Y轴范围
+function syncJbYRange(key) {
+  const c = jbCharts[key];
+  if (!c || !c.data.datasets[0].data.length) return;
+  const vals = c.data.datasets[0].data.filter(v => v != null && !isNaN(v));
+  if (!vals.length) return;
+  const lo = _roundToHalf(Math.min(...vals));
+  const hi = _roundToHalf(Math.max(...vals));
+  const pad = TICK_STEP;
+  c.options.scales.y.min = lo - pad;
+  c.options.scales.y.max = hi + pad;
+  c.update("none");
+}
+
+// 日常模式切图后同步Y轴范围
+function syncRcYRange(key) {
+  const c = rcCharts[key];
+  if (!c || !c.data.datasets[0].data.length) return;
+  const vals = c.data.datasets[0].data.filter(v => v != null && !isNaN(v));
+  if (!vals.length) return;
+  const lo = _roundToHalf(Math.min(...vals));
+  const hi = _roundToHalf(Math.max(...vals));
+  const pad = TICK_STEP;
+  c.options.scales.y.min = lo - pad;
+  c.options.scales.y.max = hi + pad;
+  c.update("none");
 }
 
 function initJbCharts() {
@@ -400,6 +455,7 @@ function refreshJbChart(key) {
   );
   c.data.datasets[0].data = buf.map(b => b.price);
   c.update("none");
+  syncJbYRange(key);
   document.getElementById(`jb-${key}-count`).textContent = `${buf.length} 条`;
 }
 
@@ -480,6 +536,7 @@ async function loadRcChart(sym, interval) {
     loading.style.display = "none";
     canvas.style.display  = "block";
     c.update("none");
+    syncRcYRange(key);
     document.getElementById(countId).textContent = `${recs.length} 条`;
   } catch (e) {
     loading.textContent = "加载失败: " + e.message;
