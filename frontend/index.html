@@ -491,13 +491,38 @@ function refreshJbChart(key) {
   const c = jbCharts[key];
   if (!c) return;
   const buf = jbBuf[key];
-  c.data.labels = buf.map(b =>
-    `${String(b.t.getHours()).padStart(2,"0")}:${String(b.t.getMinutes()).padStart(2,"0")}:${String(b.t.getSeconds()).padStart(2,"0")}`
-  );
-  c.data.datasets[0].data = buf.map(b => b.price);
+  const axis = FIXED_AXIS["5min"];
+  if (!axis.length) return;
+
+  // 将 buf 中的实时点映射到最近5分钟槽（取每个槽内最后一个价格）
+  const slotMap = {};
+  for (const b of buf) {
+    const hh = String(b.t.getHours()).padStart(2, "0");
+    const mm = String(b.t.getMinutes()).padStart(2, "0");
+    // 找到 <= 当前分钟的最近5min槽
+    const m5 = (Math.floor(b.t.getMinutes() / 5) * 5);
+    const slotKey = `${hh}:${String(m5).padStart(2, "0")}`;
+    slotMap[slotKey] = b.price;  // 后来的覆盖前面的 = 槽内最新价
+  }
+
+  // 当前时间对应的5min槽（只填充到当前槽，未来槽留null）
+  const now = new Date();
+  const nowSlot = `${String(now.getHours()).padStart(2, "0")}:${String(Math.floor(now.getMinutes() / 5) * 5).padStart(2, "0")}`;
+  const nowIdx = axis.indexOf(nowSlot);
+
+  let lastPrice = null;
+  const prices = axis.map((label, i) => {
+    if (nowIdx >= 0 && i > nowIdx) return null;  // 未来槽留空
+    if (slotMap[label] != null) lastPrice = slotMap[label];
+    return lastPrice;  // 无数据槽用最近邻前向填充
+  });
+
+  c.data.labels = axis;
+  c.data.datasets[0].data = prices;
+  c.options.scales.x.ticks.maxTicksLimit = 12;
   c.update("none");
   syncJbYRange(key);
-  document.getElementById(`jb-${key}-count`).textContent = `${buf.length} 条`;
+  document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
 }
 
 // ── 日常模式：6 张独立图 ──────────────────────────────
