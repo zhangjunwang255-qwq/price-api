@@ -328,11 +328,17 @@ const MAX_PTS = 80;
 
 // ──────────────────────────────────────────────────────────────────
 //  写死时间轴（广期所三节：09:00-10:15 / 10:30-11:30 / 13:30-15:00）
+//  夜盘：21:00-02:30
 // ──────────────────────────────────────────────────────────────────
-const TRADING_SECTIONS = [
+const DAY_SECTIONS = [
   { h: 9,  m: 0,  eh: 10, em: 15 },
   { h: 10, m: 30, eh: 11, em: 30 },
   { h: 13, m: 30, eh: 15, em: 0  },
+];
+
+const NIGHT_SECTIONS = [
+  { h: 21, m: 0,  eh: 24, em: 0  },  // 21:00-23:55
+  { h: 0,  m: 0,  eh: 2,  em: 30 },  // 00:00-02:25
 ];
 
 function _genSlots(startH, startM, endH, endM, stepMin) {
@@ -341,7 +347,7 @@ function _genSlots(startH, startM, endH, endM, stepMin) {
   while (ch < endH || (ch === endH && cm < endM)) {
     slots.push({ h: ch, m: cm });
     cm += stepMin;
-    if (cm >= 60) { ch += cm / 60 | 0; cm %= 60; }
+    if (cm >= 60) { ch += (cm / 60) | 0; cm %= 60; }
   }
   return slots;
 }
@@ -350,11 +356,20 @@ function _fmtHM(h, m) {
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 }
 
+function _isNightSession() {
+  const now = new Date();
+  const h = now.getHours();
+  // 21:00-08:59 显示夜盘
+  return h >= 21 || h < 9;
+}
+
 function buildFixedAxis(interval) {
   const stepMap = { "5min": 5, "15min": 15, "1hour": 60 };
   const stepMin = stepMap[interval] || 5;
+  const isNight = _isNightSession();
+  const sections = isNight ? NIGHT_SECTIONS : DAY_SECTIONS;
   const slots = [];
-  for (const sec of TRADING_SECTIONS) {
+  for (const sec of sections) {
     slots.push(..._genSlots(sec.h, sec.m, sec.eh, sec.em, stepMin));
   }
   return slots.map(s => _fmtHM(s.h, s.m));

@@ -123,12 +123,26 @@ def _current_session_slots(interval_min: int) -> list[datetime]:
 #  工具函数
 # ────────────────────────────────────────────────────
 def _is_trading_time() -> bool:
+    """判断当前是否在交易时段
+
+    白盘：09:00-10:15, 10:30-11:30, 13:30-15:00
+    夜盘：21:00-次日 02:30
+    """
     now = datetime.now()
-    h, t = now.hour, now.hour * 60 + now.minute
-    if h >= 21 or h < 15:
-        return True
+    h, m = now.hour, now.minute
+    t = h * 60 + m  # 当天分钟数
+
+    # 白盘三节
+    # 第一节 09:00-10:15  → 540-615
+    # 第二节 10:30-11:30  → 630-690
+    # 第三节 13:30-15:00  → 810-900
     if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
         return True
+
+    # 夜盘 21:00-23:59 + 00:00-02:30
+    if (21 <= h <= 23) or (h == 0) or (h == 1) or (h == 2 and m < 30):
+        return True
+
     return False
 
 
