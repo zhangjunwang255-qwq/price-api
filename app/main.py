@@ -216,7 +216,27 @@ def debug_stats():
         "interval_sec":  s._interval,
         "db_ok":          s._db_ok,
         "symbols":        list(s._latest.keys()),
+        "store_id":       id(s),
     }
+
+@app.get("/debug/pg_test")
+def debug_pg_test():
+    """直接测试 PG 读写（绕过 store 队列机制）"""
+    import psycopg2
+    from .config import DATABASE_URL
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        with conn.cursor() as cur:
+            cur.execute("SELECT count(*) FROM price_history")
+            count = cur.fetchone()[0]
+            cur.execute(
+                "SELECT symbol, price, dt FROM price_history ORDER BY dt DESC LIMIT 5"
+            )
+            rows = cur.fetchall()
+        conn.close()
+        return {"ok": True, "count": count, "latest": [str(r) for r in rows]}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.get("/symbols")
