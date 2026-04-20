@@ -8,7 +8,7 @@ from datetime import datetime, timezone, timedelta
 
 import psycopg2
 
-from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_RECORDS, DEFAULT_MODE
+from .config import DATABASE_URL, SYMBOLS, SAMPLE_INTERVAL_SEC, KEEP_DAYS, DEFAULT_MODE
 
 
 log = logging.getLogger("price-store")
@@ -176,30 +176,19 @@ class PriceStore:
             self._flush_fail += len(batch)
 
     def _cleanup(self):
+        """删除 KEEP_DAYS 天之前的数据"""
         if not self._db_ok:
             return
         try:
             conn = self._get_conn()
             with conn.cursor() as cur:
-                for sym in self._symbols:
-                    cur.execute(
-                        "SELECT COUNT(*) FROM price_history WHERE symbol=%s",
-                        (sym,),
-                    )
-                    count = cur.fetchone()[0]
-                    if count > KEEP_RECORDS:
-                        excess = count - KEEP_RECORDS
-                        cur.execute(
-                            """DELETE FROM price_history
-                               WHERE id IN (
-                                   SELECT id FROM price_history
-                                   WHERE symbol=%s
-                                   ORDER BY dt ASC
-                                   LIMIT %s
-                               )""",
-                            (sym, excess),
-                        )
-                        log.info("PG 清理 %s 超量 %d 条", sym, excess)
+                cur.execute(
+                    "DELETE FROM price_history WHERE dt < NOW() - INTERVAL '%s days'",
+                    (KEEP_DAYS,),
+                )
+                deleted = cur.rowcount
+                if deleted > 0:
+                    log.info("PG 清理 %d 条过期数据（>%d天前）", deleted, KEEP_DAYS)
                 conn.commit()
         except Exception as e:
             log.warning("PG 清理失败: %s", e)
