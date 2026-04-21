@@ -537,7 +537,7 @@ function rcChartOptions(color, yAxisId, dayIdxArr, totalSlots) {
             font: { size: 10 },
             // 不设 maxTicksLimit，改由 callback 控制每 N 槽显示一个标签，自然拉大间距
             callback: function(value, index) {
-              return xTickCallback(value, index, dayIdxArr, false, totalSlots);
+              return xTickCallback(String(value), index, dayIdxArr, false, totalSlots);
             },
           },
         },
