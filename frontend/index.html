@@ -83,17 +83,19 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
+      height: 120px;
     }
-    .chart-scroll::-webkit-scrollbar { height: 5px; }
+    @media (min-width: 640px)  { .chart-scroll { height: 140px; } }
+    @media (min-width: 960px)  { .chart-scroll { height: 160px; } }
+    .chart-scroll::-webkit-scrollbar { height: 4px; }
     .chart-scroll::-webkit-scrollbar-track { background: transparent; }
     .chart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     .chart-canvas-wrap {
-      /* width 由 JS 动态计算：每槽 35px */
-      height: 240px;
+      height: 120px;
     }
-    @media (min-width: 640px)  { .chart-canvas-wrap { height: 280px; } }
-    @media (min-width: 960px)  { .chart-canvas-wrap { height: 320px; } }
+    @media (min-width: 640px)  { .chart-canvas-wrap { height: 140px; } }
+    @media (min-width: 960px)  { .chart-canvas-wrap { height: 160px; } }
 
     .chart-loading {
       height: 100px; display: flex; align-items: center;
@@ -393,7 +395,7 @@ for (const [iv, days] of Object.entries(KEEP_DAYS)) {
 }
 
 // 每槽像素宽度（用于设置 canvas 宽度）
-const PX_PER_SLOT = 32;
+const PX_PER_SLOT = 16;
 
 // ── 工具 ──────────────────────────────────────────
 function _roundHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
