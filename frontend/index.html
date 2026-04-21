@@ -333,14 +333,14 @@ const MAX_PTS = 80;
 const DAY_SECTIONS = [
   { h: 9,  m: 0,  eh: 10, em: 15 },
   { h: 10, m: 30, eh: 11, em: 30 },
-  { h: 13, m: 30, eh: 15, em: 1  },   // +1 确保 15:00 被包含
+  { h: 13, m: 30, eh: 15, em: 0  },
 ];
 const DAY_DATE = new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });  // 静态当前日期
 
 function _genSlots(startH, startM, endH, endM, stepMin) {
   const slots = [];
   let ch = startH, cm = startM;
-  while (ch < endH || (ch === endH && cm < endM)) {
+  while (ch < endH || (ch === endH && cm <= endM)) {
     slots.push({ h: ch, m: cm });
     cm += stepMin;
     if (cm >= 60) { ch += (cm / 60) | 0; cm %= 60; }
