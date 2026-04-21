@@ -413,7 +413,7 @@ for (const [iv, days] of Object.entries(KEEP_DAYS)) {
 }
 
 // 每槽像素宽度（加大让X轴标签间距更宽）
-const PX_PER_SLOT = 24;
+const PX_PER_SLOT = 32;
 
 // ── 工具 ──────────────────────────────────────────
 function _roundHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
@@ -425,18 +425,25 @@ function fmtVol(v)     { return v ? Number(v).toLocaleString() : "--"; }
  * - 每日的第一个槽：显示 "MM-DD HH:MM"
  * - 其余槽：只显示 "HH:MM"
  */
-function xTickCallback(value, index, dayIdxArr, showDate) {
-  if (!showDate) return value.split(" ")[1]; // HH:MM
-  // 是新的一天
+// totalSlots 由 rcChartOptions 传入，决定每几个槽显示一个标签
+function xTickCallback(value, index, dayIdxArr, showDate, totalSlots) {
+  // 根据总槽数自动决定间隔：槽多则跳着显示，拉大间距
+  // PX_PER_SLOT=32，10px 字体每字符约 6px，期望至少 ~80px 一个标签
+  let step = 1;
+  if (totalSlots >= 120)      step = 5;   // 5min两日 ≈ 98槽→每隔5格≈160px
+  else if (totalSlots >= 60) step = 3;   // 5min单日≈49槽 15min三日≈51槽→每隔3格≈96px
+  else if (totalSlots >= 30) step = 2;   // 15min两日≈34槽 1hour五日≈40槽
+
+  if (index % step !== 0) return ""; // 跳过
+
+  // 显示日期+时间：新的一天才显示日期，其余只显示时间
+  const time = value.split(" ")[1]; // "HH:MM"
+  if (!showDate) return time;
   if (index === 0 || (dayIdxArr[index] !== dayIdxArr[index - 1])) {
     const parts = value.split(" ");
-    if (parts.length === 2) {
-      // "YYYY-MM-DD HH:MM" → "04-21 09:00"
-      const mmdd = parts[0].slice(5); // "04-21"
-      return mmdd + " " + parts[1];
-    }
+    if (parts.length === 2) return parts[0].slice(5) + " " + parts[1]; // "04-21 09:00"
   }
-  return value.split(" ")[1]; // HH:MM
+  return time;
 }
 
 // ── Chart 基线配置（竞标模式用，无特殊X轴）───────────
@@ -498,7 +505,7 @@ function baseChartOptions(color) {
 /**
  * 日常模式 Chart 配置（带X轴间隔控制 + 独立Y轴ID）
  */
-function rcChartOptions(color, yAxisId, dayIdxArr) {
+function rcChartOptions(color, yAxisId, dayIdxArr, totalSlots) {
   return {
     type: "line",
     data: {
@@ -525,11 +532,11 @@ function rcChartOptions(color, yAxisId, dayIdxArr) {
           ticks: {
             color: "#6b7280",
             autoSkip: false,
-            maxTicksLimit: 40,
             maxRotation: 45,
-            font: { size: 9 },
+            font: { size: 10 },
+            // 不设 maxTicksLimit，改由 callback 控制每 N 槽显示一个标签，自然拉大间距
             callback: function(value, index) {
-              return xTickCallback(value, index, dayIdxArr, false);
+              return xTickCallback(value, index, dayIdxArr, false, totalSlots);
             },
           },
         },
@@ -723,7 +730,7 @@ function makeRcChart(key, color, canvasId, yaxisId, slotCount) {
 
   // 主图（无Y轴，X轴控制tick密度）
   const mainCtx  = mainCanvas.getContext("2d");
-  const mainChart = new Chart(mainCtx, rcChartOptions(color, key, dayIdx));
+  const mainChart = new Chart(mainCtx, rcChartOptions(color, key, dayIdx, slotCount));
 
   // Y轴独立图（只有Y轴，无X轴，与主图共享 yAxisId）
   const yaxisCtx  = yaxisCanvas.getContext("2d");
@@ -732,6 +739,10 @@ function makeRcChart(key, color, canvasId, yaxisId, slotCount) {
   // 设置 canvas 宽度 → 横向可滚动
   const w = slotCount * PX_PER_SLOT;
   mainCanvas.style.width = `${w}px`;
+
+  // chart-body 容器也要同宽，overflow-x: auto 才能检测到溢出
+  const bodyEl = mainCanvas.closest(".chart-body");
+  if (bodyEl) bodyEl.style.width = `${w}px`;
 
   // Y轴canvas高度 = chart-scroll高度，由CSS控制，此处仅确保尺寸
   const scrollEl = mainCanvas.closest(".chart-scroll");
