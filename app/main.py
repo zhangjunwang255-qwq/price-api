@@ -178,14 +178,16 @@ def get_quote_one(symbol: str):
 def get_history(
     symbol:    str  = Query(...,       description="品种代码，如 KQ.m@GFEX.pt"),
     interval_: str  = Query("5min",   description="采样间隔: 5min | 15min | 1hour"),
-    limit:     int  = Query(200,      ge=1, le=1000, description="最多返回条数"),
+    limit:     int  = Query(200,      ge=1, le=2000, description="当天最多 slot 数"),
+    days:      int  = Query(1,        ge=1,  le=30,   description="查询天数（含今天）"),
 ):
     if interval_ not in ("5min", "15min", "1hour"):
         raise HTTPException(400, "无效 interval，可用: 5min | 15min | 1hour")
-    records = store.get_history(symbol, interval_=interval_, limit=limit)
+    records = store.get_history(symbol, interval_=interval_, limit=limit, days=days)
     return {
         "symbol":    symbol,
         "interval":  interval_,
+        "days":      days,
         "count":     len(records),
         "records":   records,
     }

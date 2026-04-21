@@ -9,9 +9,10 @@ app/store.py — 价格存储（内存缓存 + PostgreSQL 持久化）
 - 时间轴改为固定交易时段（9:00/10:30/13:30 三节，含间隙），不依赖数据库时间戳
 - KEEP_DAYS=30（按时间清理）
 - PG 写入：每次新建独立连接（不用池），避免连接被污染导致静默失败
+- get_history 支持 days 参数：生成多天固定时间槽
 """
 import threading, time, logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from contextlib import suppress
 
 import psycopg2
@@ -29,6 +30,11 @@ log = logging.getLogger("price-store")
 #   第一节  09:00 – 10:15
 #   第二节  10:30 – 11:30
 #   第三节  13:30 – 15:00
+DAY_SECTIONS = [
+    (9,  0,  10, 15),   # 第一节
+    (10, 30, 11, 30),   # 第二节
+    (13, 30, 15,  1),   # 第三节（含 15:00，+1 确保 15:00 被包含）
+]
 
 
 # ── 单节时间槽生成 ─────────────────────────────────
@@ -54,50 +60,30 @@ def _section_slots(start_h: int, start_m: int,
     return slots
 
 
-def _day_session_slots(interval_min: int) -> list[datetime]:
-    """
-    今天白盘所有固定时间槽（含三节间隙）。
-    第一节 09:00–10:15 | 第二节 10:30–11:30 | 第三节 13:30–15:00
-    """
-    today = datetime.now().date()
-    sections = [
-        (9,  0,  10, 15),   # 第一节
-        (10, 30, 11, 30),   # 第二节
-        (13, 30, 15,  1),   # 第三节（含 15:00，+1 确保 15:00 被包含）
-    ]
+def _day_slots(dt: date, interval_min: int) -> list[datetime]:
+    """生成指定日期白盘所有固定时间槽"""
     result = []
-    for sh, sm, eh, em in sections:
+    for sh, sm, eh, em in DAY_SECTIONS:
         for h, m in _section_slots(sh, sm, eh, em, interval_min):
-            result.append(datetime(today.year, today.month, today.day, h, m, 0))
+            result.append(datetime(dt.year, dt.month, dt.day, h, m, 0))
     return result
 
 
 def _current_session_slots(interval_min: int) -> list[datetime]:
     """返回今天白盘所有固定时间槽"""
-    return _day_session_slots(interval_min)
+    return _day_slots(datetime.now().date(), interval_min)
 
 
 # ────────────────────────────────────────────────────
 #  工具函数
 # ────────────────────────────────────────────────────
 def _is_trading_time() -> bool:
-    """判断当前是否在交易时段
-
-    广期所铂钯只有白盘：
-    - 第一节 09:00-10:15
-    - 第二节 10:30-11:30
-    - 第三节 13:30-15:00
-    """
+    """判断当前是否在交易时段"""
     now = datetime.now()
     h, m = now.hour, now.minute
-    t = h * 60 + m  # 当天分钟数
-
-    # 第一节 09:00-10:15  → 540-615
-    # 第二节 10:30-11:30  → 630-690
-    # 第三节 13:30-15:00  → 810-900
+    t = h * 60 + m
     if (540 <= t < 615) or (630 <= t < 690) or (810 <= t < 900):
         return True
-
     return False
 
 
@@ -136,13 +122,12 @@ class PriceStore:
         self._interval = 0 if DEFAULT_MODE == "竞标" else SAMPLE_INTERVAL_SEC
         self._last_sample_time: dict[str, float] = {}
 
-        # PG 状态（用简单标志，不用连接池）
         self._db_ok: bool = bool(DATABASE_URL)
         if not DATABASE_URL:
             log.warning("DATABASE_URL 未设置，降级为纯内存模式")
         else:
             log.info("PriceStore 初始化，模式=%s，PG=%s", self._mode, self._db_ok)
-            self._test_pg()  # 初始化时测试 PG
+            self._test_pg()
 
         self._write_queue: list[tuple] = []
         self._write_lock   = threading.Lock()
@@ -158,7 +143,6 @@ class PriceStore:
         self._flush_fail   = 0
 
     def _test_pg(self) -> bool:
-        """启动时测试 PG 连接是否正常"""
         try:
             conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
             try:
@@ -175,7 +159,6 @@ class PriceStore:
             return False
 
     def _pg_conn(self):
-        """每次新建独立 PG 连接（不使用池，避免连接被污染）"""
         return psycopg2.connect(DATABASE_URL, connect_timeout=5)
 
     # ── 后台 writer ───────────────────────────────
@@ -259,7 +242,6 @@ class PriceStore:
                price: float, volume: int, dt: str):
         self._update_count += 1
 
-        # ── 更新最新价（所有模式都做） ──
         with self._lock["main"]:
             prev = self._prev.get(symbol)
             self._prev[symbol] = _nan(price)
@@ -273,10 +255,9 @@ class PriceStore:
                 "is_trading": _is_trading_time(),
             }
 
-        # ── 采样判断（竞标=interval=0，每次都采样；日常=按间隔） ──
         now = time.time()
         if self._interval > 0 and (now - self._last_sample_time.get(symbol, 0.0)) < self._interval:
-            return  # 日常模式间隔未到，跳过采样
+            return
 
         with self._lock["main"]:
             self._last_sample_time[symbol] = time.time()
@@ -326,16 +307,36 @@ class PriceStore:
 
     def get_history(self, symbol: str,
                     interval_: str = "5min",
-                    limit: int = 200) -> list[dict]:
+                    limit: int = 200,
+                    days: int = 1) -> list[dict]:
         """
-        按固定交易时段时间轴返回数据（不依赖数据库时间戳）。
+        按固定交易时段时间轴返回数据，支持多天历史。
+
+        - days: 查询多少天（含今天），默认 1
+        - interval_: 5min | 15min | 1hour
+        - limit: 每种间隔的 slot 数量上限（仅限当天，超过则取最近 limit 个）
         """
         interval_map = {"5min": 5, "15min": 15, "1hour": 60}
         interval_min = interval_map.get(interval_, 5)
 
-        slots = _current_session_slots(interval_min)
-        if len(slots) > limit:
-            slots = slots[-limit:]
+        today = datetime.now().date()
+        # 生成 N 天 slots（今天在最前）
+        slots = []
+        for d in [today - timedelta(days=i) for i in range(days - 1, -1, -1)]:
+            slots.extend(_day_slots(d, interval_min))
+
+        # 当天部分按 limit 截断（老数据舍去，保留最近 limit 条）
+        today_slots = _day_slots(today, interval_min)
+        if len(today_slots) > limit:
+            today_slots = today_slots[-limit:]
+        # 重建 slots：今天用截断版，昨天起完整
+        if days == 1:
+            slots = today_slots
+        else:
+            past_slots = []
+            for d in [today - timedelta(days=i) for i in range(days - 2, -1, -1)]:
+                past_slots.extend(_day_slots(d, interval_min))
+            slots = past_slots + today_slots
 
         if not self._db_ok or not slots:
             return [{"datetime": s.strftime("%Y-%m-%d %H:%M"),
@@ -345,9 +346,12 @@ class PriceStore:
         try:
             conn = self._pg_conn()
             with conn.cursor() as cur:
+                # 查询最近 days 天的数据
                 cur.execute(
-                    "SELECT price, dt FROM price_history WHERE symbol=%s ORDER BY dt ASC",
-                    (symbol,),
+                    "SELECT price, dt FROM price_history "
+                    "WHERE symbol=%s AND dt >= NOW() - INTERVAL '%s days' "
+                    "ORDER BY dt ASC",
+                    (symbol, days),
                 )
                 rows = cur.fetchall()
         except Exception as e:
@@ -359,26 +363,21 @@ class PriceStore:
                 with suppress(Exception):
                     conn.close()
 
-        result = []
+        # 预建 slot → price 映射（O(n*m) → 优化为 O(n)）
+        slot_set = {s: None for s in slots}
         last_price = None
-
+        for price, dt in rows:
+            dt_naive = dt.replace(tzinfo=None)
+            if dt_naive in slot_set:
+                slot_set[dt_naive] = float(price)
+        # 前向填充
+        result = []
         for slot in slots:
-            best_price = None
-            best_diff  = timedelta.max
-
-            for price, dt in rows:
-                diff = abs(dt.replace(tzinfo=None) - slot)
-                if diff < best_diff and diff <= timedelta(minutes=interval_min):
-                    best_diff  = diff
-                    best_price = float(price)
-
-            if best_price is not None:
-                last_price = best_price
-
+            if slot_set.get(slot) is not None:
+                last_price = slot_set[slot]
             result.append({
                 "datetime": slot.strftime("%Y-%m-%d %H:%M"),
                 "price":    last_price,
                 "symbol":   symbol,
             })
-
         return result

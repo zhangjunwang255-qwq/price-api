@@ -16,9 +16,7 @@
       --up:       #22c55e;
       --dn:       #ef4444;
     }
-
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: "SF Mono", "Fira Code", monospace;
       background: var(--bg);
@@ -26,43 +24,21 @@
       min-height: 100vh;
       padding: 1.5rem 1rem;
     }
-
     header { text-align: center; margin-bottom: 1.5rem; }
     header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
     header .subtitle { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
-
-    /* ── 通用容器 ─────────────────────────────── */
     .view { max-width: 960px; margin: 0 auto; }
 
-    /* ── 价格卡片 ─────────────────────────────── */
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
+    /* 价格卡片 */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
     @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
-
     .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.2rem 1.4rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1.2rem 1.4rem;
     }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.8rem;
-    }
-    .card-title {
-      font-size: 0.72rem; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted);
-    }
-    .card-symbol {
-      font-size: 0.65rem; color: var(--muted);
-      background: var(--bg); padding: 0.2rem 0.45rem; border-radius: 4px;
-    }
+    .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
+    .card-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+    .card-symbol { font-size: 0.65rem; color: var(--muted); background: var(--bg); padding: 0.2rem 0.45rem; border-radius: 4px; }
     .price { font-size: 2.2rem; font-weight: 700; line-height: 1; margin-bottom: 0.25rem; }
     .price.pt { color: var(--pt-color); }
     .price.pd { color: var(--pd-color); }
@@ -70,66 +46,61 @@
     .meta { font-size: 0.68rem; color: var(--muted); margin-top: 0.3rem; }
     .meta span { color: var(--text); }
     .change-tag {
-      font-size: 0.78rem; font-weight: 600;
-      padding: 0.18rem 0.5rem; border-radius: 5px;
+      font-size: 0.78rem; font-weight: 600; padding: 0.18rem 0.5rem; border-radius: 5px;
       display: inline-block; margin-top: 0.4rem;
     }
     .change-tag.up   { color: var(--up);   background: rgba(34,197,94,0.12); }
     .change-tag.dn   { color: var(--dn);   background: rgba(239,68,68,0.12); }
     .change-tag.flat { color: var(--muted); background: rgba(107,114,128,0.12); }
     .session-tag {
-      font-size: 0.68rem; font-weight: 600;
-      padding: .18rem .5rem; border-radius: 5px;
+      font-size: 0.68rem; font-weight: 600; padding: .18rem .5rem; border-radius: 5px;
       display: inline-block; margin-top: 0.4rem;
     }
     .session-tag.live   { color: var(--up); background: rgba(34,197,94,0.12); }
     .session-tag.closed { color: var(--dn); background: rgba(239,68,68,0.12); }
 
-    /* ── 图表卡片 ─────────────────────────────── */
+    /* 图表卡片 */
     .chart-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1rem 1.2rem;
-      margin-bottom: 1rem;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem;
     }
-    .chart-header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 0.7rem;
-    }
-    .chart-title {
-      font-size: 0.72rem; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
-    }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
+    .chart-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
     .chart-count { font-size: 0.62rem; color: var(--muted); }
 
-    /* 竞标模式：两张图并排（桌面），手机竖排 */
-    .charts-2col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
+    /* 竞标模式：两张图并排 */
+    .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 640px) { .charts-2col { grid-template-columns: 1fr; } }
 
-    /* 日常模式：2列×3行 */
-    .charts-6grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
+    /* 日常模式：2列×3行，canvas 可横向滚动 */
+    .charts-6grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 640px) { .charts-6grid { grid-template-columns: 1fr; } }
 
-    /* 图表高度自适应 */
-    .chart-canvas { width: 100% !important; height: 240px !important; }
-    @media (min-width: 640px)  { .chart-canvas { height: 280px !important; } }
-    @media (min-width: 960px)  { .chart-canvas { height: 320px !important; } }
+    /* 滚动容器：固定高度，横向溢出滚动 */
+    .chart-scroll {
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .chart-scroll::-webkit-scrollbar { height: 5px; }
+    .chart-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .chart-canvas-wrap {
+      /* width 由 JS 动态计算：每槽 35px */
+      height: 240px;
+    }
+    @media (min-width: 640px)  { .chart-canvas-wrap { height: 280px; } }
+    @media (min-width: 960px)  { .chart-canvas-wrap { height: 320px; } }
 
     .chart-loading {
       height: 100px; display: flex; align-items: center;
       justify-content: center; color: var(--muted); font-size: 0.75rem;
     }
 
-    /* ── 模式切换 ─────────────────────────────── */
+    /* 模式切换 */
     .mode-interval { font-size: 0.68rem; color: var(--muted); text-align: center; margin-bottom: 0.4rem; }
     .mode-bar { display: flex; justify-content: center; gap: 0.4rem; margin-bottom: 1.5rem; }
     .mode-btn {
@@ -141,7 +112,7 @@
     .mode-btn:hover { border-color: var(--text); color: var(--text); }
     .mode-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-    /* ── 状态栏 ───────────────────────────────── */
+    /* 状态栏 */
     .status-bar {
       max-width: 960px; margin: 1.2rem auto 0;
       display: flex; justify-content: space-between;
@@ -160,8 +131,7 @@
     /* 日常模式分组标题 */
     .sym-label {
       font-size: 0.78rem; font-weight: 700;
-      letter-spacing: 0.08em; margin: 0.8rem 0 0.4rem;
-      padding-left: 0.2rem;
+      letter-spacing: 0.08em; margin: 0.8rem 0 0.4rem; padding-left: 0.2rem;
     }
     .sym-label.pt { color: var(--pt-color); }
     .sym-label.pd { color: var(--pd-color); }
@@ -182,8 +152,6 @@
 
 <!-- ══ 竞标模式 ══════════════════════════════════════ -->
 <div id="jingbiao-view" class="view">
-
-  <!-- 价格卡片 -->
   <div class="grid-2">
     <div class="card">
       <div class="card-header">
@@ -208,30 +176,26 @@
       <div id="pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
     </div>
   </div>
-
-  <!-- 竞标模式：铂金 / 钯金 各一张实时走势图 -->
   <div class="charts-2col">
     <div class="chart-card">
       <div class="chart-header">
         <span class="chart-title" style="color:var(--pt-color)">铂金 PT · 实时走势</span>
         <span class="chart-count" id="jb-pt-count">0 条</span>
       </div>
-      <canvas id="jb-pt-chart" class="chart-canvas"></canvas>
+      <canvas id="jb-pt-chart" class="chart-canvas-wrap" style="width:100%"></canvas>
     </div>
     <div class="chart-card">
       <div class="chart-header">
         <span class="chart-title" style="color:var(--pd-color)">钯金 PD · 实时走势</span>
         <span class="chart-count" id="jb-pd-count">0 条</span>
       </div>
-      <canvas id="jb-pd-chart" class="chart-canvas"></canvas>
+      <canvas id="jb-pd-chart" class="chart-canvas-wrap" style="width:100%"></canvas>
     </div>
   </div>
 </div>
 
 <!-- ══ 日常模式 ══════════════════════════════════════ -->
 <div id="richang-view" class="view">
-
-  <!-- 价格卡片（5min 轮询） -->
   <div class="grid-2">
     <div class="card">
       <div class="card-header">
@@ -266,7 +230,11 @@
         <span class="chart-count" id="rc-pt-5min-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pt-5min-loading">加载中...</div>
-      <canvas id="rc-pt-5min" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pt-5min-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pt-5min" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-card">
       <div class="chart-header">
@@ -274,7 +242,11 @@
         <span class="chart-count" id="rc-pt-15min-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pt-15min-loading">加载中...</div>
-      <canvas id="rc-pt-15min" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pt-15min-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pt-15min" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-card">
       <div class="chart-header">
@@ -282,7 +254,11 @@
         <span class="chart-count" id="rc-pt-1hour-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pt-1hour-loading">加载中...</div>
-      <canvas id="rc-pt-1hour" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pt-1hour-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pt-1hour" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -295,7 +271,11 @@
         <span class="chart-count" id="rc-pd-5min-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pd-5min-loading">加载中...</div>
-      <canvas id="rc-pd-5min" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pd-5min-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pd-5min" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-card">
       <div class="chart-header">
@@ -303,7 +283,11 @@
         <span class="chart-count" id="rc-pd-15min-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pd-15min-loading">加载中...</div>
-      <canvas id="rc-pd-15min" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pd-15min-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pd-15min" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
     <div class="chart-card">
       <div class="chart-header">
@@ -311,7 +295,11 @@
         <span class="chart-count" id="rc-pd-1hour-count">--</span>
       </div>
       <div class="chart-loading" id="rc-pd-1hour-loading">加载中...</div>
-      <canvas id="rc-pd-1hour" class="chart-canvas" style="display:none"></canvas>
+      <div class="chart-scroll" id="rc-pd-1hour-scroll" style="display:none">
+        <div style="position:relative;height:100%">
+          <canvas id="rc-pd-1hour" style="height:100%;width:100%"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -323,21 +311,21 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const API     = window.location.origin;
-const MAX_PTS = 80;
+const API      = window.location.origin;
+const MAX_JB   = 80;
+const TICK_STEP = 0.5;  // Y轴固定步长（元/克）
 
-// ──────────────────────────────────────────────────────────────────
-//  写死时间轴（广期所铂钯只有白盘，无夜盘）
-//  白盘三节：09:00-10:15 / 10:30-11:30 / 13:30-15:00
-// ──────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────
+//  写死时间轴（广期所白盘三节）
+//  第一节 09:00-10:15 | 第二节 10:30-11:30 | 第三节 13:30-15:00
+// ────────────────────────────────────────────────────
 const DAY_SECTIONS = [
   { h: 9,  m: 0,  eh: 10, em: 15 },
   { h: 10, m: 30, eh: 11, em: 30 },
   { h: 13, m: 30, eh: 15, em: 0  },
 ];
-const DAY_DATE = new Date().toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });  // 静态当前日期
 
-function _genSlots(startH, startM, endH, endM, stepMin) {
+function _sectionSlots(startH, startM, endH, endM, stepMin) {
   const slots = [];
   let ch = startH, cm = startM;
   while (ch < endH || (ch === endH && cm <= endM)) {
@@ -348,45 +336,77 @@ function _genSlots(startH, startM, endH, endM, stepMin) {
   return slots;
 }
 
-function _fmtHM(h, m) {
-  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+function _daySlots(intervalMin) {
+  const out = [];
+  for (const s of DAY_SECTIONS)
+    out.push(..._sectionSlots(s.h, s.m, s.eh, s.em, intervalMin));
+  return out;
 }
 
-function buildFixedAxis(interval) {
-  const stepMap = { "5min": 5, "15min": 15, "1hour": 60 };
-  const stepMin = stepMap[interval] || 5;
-  const slots = [];
-  for (const sec of DAY_SECTIONS) {
-    slots.push(..._genSlots(sec.h, sec.m, sec.eh, sec.em, stepMin));
+/**
+ * 构建多天固定时间轴标签。
+ * days: N天（从今天往前）
+ * intervalMin: 5 | 15 | 60
+ * 返回 { labels: string[], days: int[] }  days[i] 表示第 i 个槽对应的"距离今天的天数"（0=今天）
+ */
+function buildMultiDayAxis(days, intervalMin) {
+  const stepMap = { 5: 5, 15: 15, 60: 60 };
+  const step = stepMap[intervalMin] || 5;
+  const today = new Date();
+  const todayStr = today.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+  const pastStr = (d) => {
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - d);
+    return dt.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+  };
+  const fmtHM = (h, m) => `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
+
+  const labels = [];
+  const dayIdx  = [];   // 每槽属于第几天（0=今天）
+  // 生成顺序：昨天→前天→...→今天（前端滚动时越靠右越新）
+  for (let d = days - 1; d >= 0; d--) {
+    const daySlots = _daySlots(step);
+    for (let i = 0; i < daySlots.length; i++) {
+      const s = daySlots[i];
+      const prefix = (d === 0) ? todayStr : pastStr(d);
+      labels.push(i === 0 ? `${prefix} ${fmtHM(s.h, s.m)}` : fmtHM(s.h, s.m));
+      dayIdx.push(d);
+    }
   }
-  // 第一个槽加日期前缀，后续只有时间
-  const labels = slots.map(s => _fmtHM(s.h, s.m));
-  labels[0] = `${DAY_DATE} ${labels[0]}`;
-  return labels;
+  return { labels, dayIdx };
 }
 
-const FIXED_AXIS = {
-  "5min":   buildFixedAxis("5min"),
-  "15min":  buildFixedAxis("15min"),
-  "1hour":  buildFixedAxis("1hour"),
+// 各间隔的 slot 数量（每天）
+const SLOTS_PER_DAY = {
+  "5min":   _daySlots(5).length,    // 48
+  "15min":  _daySlots(15).length,   // 16
+  "1hour":  _daySlots(60).length,   // 8
 };
 
-// ── 竞标模式：铂金/钯金各自缓冲 ──────────────────────
-const jbBuf = { pt: [], pd: [] };
-const jbCharts = { pt: null, pd: null };
+// 数据保留天数
+const KEEP_DAYS = { "5min": 2, "15min": 3, "1hour": 10 };
 
-// ── Y轴统一配置：固定0.5间隔步长，水平参考线 ──────────
-const TICK_STEP = 0.5;   // Y轴刻度间隔（单位：元/克）
+// 各图表的固定轴（预生成，避免重复计算）
+const FIXED_AXIS = {};
+for (const [iv, days] of Object.entries(KEEP_DAYS)) {
+  FIXED_AXIS[iv] = buildMultiDayAxis(days, iv === "1hour" ? 60 : iv === "15min" ? 15 : 5);
+}
 
-function _roundToHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
+// 每槽像素宽度（用于设置 canvas 宽度）
+const PX_PER_SLOT = 32;
 
-function makeLineChart(ctx, color, label) {
-  return new Chart(ctx, {
+// ── 工具 ──────────────────────────────────────────
+function _roundHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
+function fmt2(v)       { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
+function fmtVol(v)     { return v ? Number(v).toLocaleString() : "--"; }
+
+// ── Chart 基线配置 ───────────────────────────────
+function baseChartOptions(color) {
+  return {
     type: "line",
     data: {
       labels: [],
       datasets: [{
-        label,
         data: [],
         borderColor: color,
         backgroundColor: "transparent",
@@ -394,6 +414,7 @@ function makeLineChart(ctx, color, label) {
         tension: 0.35,
         borderWidth: 1.8,
         pointRadius: 0,
+        spanGaps: true,
       }],
     },
     options: {
@@ -404,273 +425,215 @@ function makeLineChart(ctx, color, label) {
       scales: {
         x: {
           grid: { color: "rgba(45,49,72,0.5)" },
-          ticks: { color: "#6b7280", maxTicksLimit: 8, font: { size: 10 }, maxRotation: 0 },
+          ticks: {
+            color: "#6b7280",
+            autoSkip: false,          // 显示所有标签
+            maxRotation: 45,
+            font: { size: 9 },
+          },
         },
         y: {
           grid: { color: "rgba(45,49,72,0.5)" },
-          ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(2) },
+          ticks: {
+            color: "#6b7280",
+            font: { size: 10 },
+            callback: v => v.toFixed(2),
+            stepSize: TICK_STEP,
+          },
         },
       },
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: "#1a1d27", borderColor: "#2d3148", borderWidth: 1,
-          titleColor: "#e2e4ea", bodyColor: "#9ca3af",
-        },
-        // 绘制水平参考线（固定0.5间隔）
-        afterUpdate(chart) {
-          const { ctx, chartArea: { left, right }, scales: { y } } = chart;
-          if (!y || y.min == null || y.max == null) return;
-          const yMin = _roundToHalf(y.min);
-          const yMax = _roundToHalf(y.max);
-          const gridColor = "rgba(45,49,72,0.45)";
-          ctx.save();
-          ctx.strokeStyle = gridColor;
-          ctx.lineWidth = 0.5;
-          ctx.setLineDash([4, 4]);
-          for (let v = yMin; v <= yMax + 0.001; v += TICK_STEP) {
-            const py = y.getPixelForValue(v);
-            if (py >= y.top && py <= y.bottom) {
-              ctx.beginPath();
-              ctx.moveTo(left, py);
-              ctx.lineTo(right, py);
-              ctx.stroke();
-            }
-          }
-          ctx.restore();
+          backgroundColor: "#1a1d27",
+          borderColor: "#2d3148",
+          borderWidth: 1,
+          titleColor: "#e2e4ea",
+          bodyColor: "#9ca3af",
         },
       },
     },
-  });
+  };
 }
 
-// 竞标模式切图后同步Y轴范围
-function syncJbYRange(key) {
-  const c = jbCharts[key];
-  if (!c || !c.data.datasets[0].data.length) return;
-  const vals = c.data.datasets[0].data.filter(v => v != null && !isNaN(v));
+function syncYRange(chart) {
+  if (!chart || !chart.data.datasets[0].data.length) return;
+  const vals = chart.data.datasets[0].data.filter(v => v != null && !isNaN(v));
   if (!vals.length) return;
-  const lo = _roundToHalf(Math.min(...vals));
-  const hi = _roundToHalf(Math.max(...vals));
-  const pad = TICK_STEP;
-  c.options.scales.y.min = lo - pad;
-  c.options.scales.y.max = hi + pad;
-  c.update("none");
+  const lo = _roundHalf(Math.min(...vals));
+  const hi = _roundHalf(Math.max(...vals));
+  chart.options.scales.y.min = lo - TICK_STEP;
+  chart.options.scales.y.max = hi + TICK_STEP;
+  chart.update("none");
 }
 
-// 日常模式切图后同步Y轴范围
-function syncRcYRange(key) {
-  const c = rcCharts[key];
-  if (!c || !c.data.datasets[0].data.length) return;
-  const vals = c.data.datasets[0].data.filter(v => v != null && !isNaN(v));
-  if (!vals.length) return;
-  const lo = _roundToHalf(Math.min(...vals));
-  const hi = _roundToHalf(Math.max(...vals));
-  const pad = TICK_STEP;
-  c.options.scales.y.min = lo - pad;
-  c.options.scales.y.max = hi + pad;
-  c.update("none");
+// ── 竞标模式 ─────────────────────────────────────
+const jbBuf    = { pt: [], pd: [] };
+const jbCharts = { pt: null, pd: null };
+
+function makeJbChart(canvasId, color) {
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  const chart = new Chart(ctx, baseChartOptions(color));
+  chart.options.scales.x.ticks.maxRotation = 0;
+  return chart;
 }
 
 function initJbCharts() {
-  if (!jbCharts.pt)
-    jbCharts.pt = makeLineChart(
-      document.getElementById("jb-pt-chart").getContext("2d"),
-      "#f59e0b", "铂金 PT"
-    );
-  if (!jbCharts.pd)
-    jbCharts.pd = makeLineChart(
-      document.getElementById("jb-pd-chart").getContext("2d"),
-      "#818cf8", "钯金 PD"
-    );
-  // 启动时加载历史数据预填（休市时保留最后走势图）
+  if (!jbCharts.pt) jbCharts.pt = makeJbChart("jb-pt-chart", "#f59e0b");
+  if (!jbCharts.pd) jbCharts.pd = makeJbChart("jb-pd-chart", "#818cf8");
   loadJbHistory("pt");
   loadJbHistory("pd");
 }
 
-// 竞标模式：从 /history 加载5min历史，预填写死时间轴
 async function loadJbHistory(key) {
   const c = jbCharts[key];
   if (!c) return;
   const symMap = { pt: "KQ.m@GFEX.pt", pd: "KQ.m@GFEX.pd" };
   try {
-    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symMap[key])}&interval_=5min&limit=200`);
+    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symMap[key])}&interval_=5min&limit=200&days=1`);
     const json = await res.json();
     const recs = json.records || [];
-    const axis = FIXED_AXIS["5min"];
+    const { labels } = FIXED_AXIS["5min"];
+
     if (!recs.length) {
-      // 无历史数据：显示空轴框架
-      c.data.labels = axis;
-      c.data.datasets[0].data = axis.map(() => null);
-      c.options.scales.x.ticks.maxTicksLimit = 12;
+      c.data.labels = labels;
+      c.data.datasets[0].data = labels.map(() => null);
       c.update("none");
       return;
     }
-    // 映射历史数据到固定时间槽
     const priceMap = {};
-    for (const r of recs) {
-      const d = new Date(r.datetime);
-      const m5 = Math.floor(d.getMinutes() / 5) * 5;
-      const slotKey = `${String(d.getHours()).padStart(2, "0")}:${String(m5).padStart(2, "0")}`;
-      priceMap[slotKey] = r.price;  // 同槽取最新
-    }
-    let lastPrice = null;
-    const prices = axis.map(label => {
-      if (priceMap[label] != null) lastPrice = priceMap[label];
-      return lastPrice;
-    });
-    c.data.labels = axis;
+    for (const r of recs) priceMap[r.datetime] = r.price;
+    let last = null;
+    const prices = labels.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
+    c.data.labels = labels;
     c.data.datasets[0].data = prices;
-    c.options.scales.x.ticks.maxTicksLimit = 12;
     c.update("none");
-    syncJbYRange(key);
+    syncYRange(c);
     document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
   } catch (e) {
-    console.warn("loadJbHistory failed:", key, e);
+    console.warn("loadJbHistory", key, e);
   }
 }
 
 function pushJbBuf(sym, price, t) {
   const key = sym.includes(".pt") ? "pt" : "pd";
   jbBuf[key].push({ t, price });
-  if (jbBuf[key].length > MAX_PTS) jbBuf[key].shift();
+  if (jbBuf[key].length > MAX_JB) jbBuf[key].shift();
 }
 
 function refreshJbChart(key) {
   const c = jbCharts[key];
   if (!c) return;
   const buf = jbBuf[key];
-  const axis = FIXED_AXIS["5min"];
-  if (!axis.length) return;
+  const { labels } = FIXED_AXIS["5min"];
 
-  // 休市/无新数据：buf为空，但图表已有历史数据 → 保留不覆盖
   if (!buf.length) {
-    const hasData = c.data.datasets[0].data.some(v => v != null);
-    if (hasData) return;
+    if (c.data.datasets[0].data.some(v => v != null)) return;
   }
+  const now = new Date();
+  const nowSlot = `${String(now.getHours()).padStart(2,"0")}:${String(Math.floor(now.getMinutes()/5)*5).padStart(2,"0")}`;
+  const nowIdx = labels.indexOf(nowSlot);
 
-  // 将 buf 中的实时点映射到最近5分钟槽（取每个槽内最后一个价格）
   const slotMap = {};
   for (const b of buf) {
-    const hh = String(b.t.getHours()).padStart(2, "0");
-    const mm = String(b.t.getMinutes()).padStart(2, "0");
-    // 找到 <= 当前分钟的最近5min槽
-    const m5 = (Math.floor(b.t.getMinutes() / 5) * 5);
-    const slotKey = `${hh}:${String(m5).padStart(2, "0")}`;
-    slotMap[slotKey] = b.price;  // 后来的覆盖前面的 = 槽内最新价
+    const m5 = Math.floor(b.t.getMinutes() / 5) * 5;
+    const sk = `${String(b.t.getHours()).padStart(2,"0")}:${String(m5).padStart(2,"0")}`;
+    slotMap[sk] = b.price;
   }
-
-  // 当前时间对应的5min槽（只填充到当前槽，未来槽留null）
-  const now = new Date();
-  const nowSlot = `${String(now.getHours()).padStart(2, "0")}:${String(Math.floor(now.getMinutes() / 5) * 5).padStart(2, "0")}`;
-  const nowIdx = axis.indexOf(nowSlot);
-
-  let lastPrice = null;
-  const prices = axis.map((label, i) => {
-    if (nowIdx >= 0 && i > nowIdx) return null;  // 未来槽留空
-    if (slotMap[label] != null) lastPrice = slotMap[label];
-    return lastPrice;  // 无数据槽用最近邻前向填充
+  let last = null;
+  const prices = labels.map((l, i) => {
+    if (nowIdx >= 0 && i > nowIdx) return null;
+    return slotMap[l] != null ? (last = slotMap[l]) : last;
   });
-
-  c.data.labels = axis;
+  c.data.labels = labels;
   c.data.datasets[0].data = prices;
-  c.options.scales.x.ticks.maxTicksLimit = 12;
   c.update("none");
-  syncJbYRange(key);
+  syncYRange(c);
   document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
 }
 
-// ── 日常模式：6 张独立图 ──────────────────────────────
+// ── 日常模式 ─────────────────────────────────────
 const rcCharts = {};  // key: "pt-5min" / "pt-15min" / "pt-1hour" / "pd-..."
 
-function makeRcChart(canvasId, color) {
-  return makeLineChart(
-    document.getElementById(canvasId).getContext("2d"),
-    color, ""
-  );
+function makeRcChart(key, color, canvasId, slotCount) {
+  const canvas = document.getElementById(canvasId);
+  const ctx    = canvas.getContext("2d");
+  const chart  = new Chart(ctx, baseChartOptions(color));
+  // 动态设置 canvas 宽度 → 横向可滚动
+  canvas.style.width  = `${slotCount * PX_PER_SLOT}px`;
+  canvas.style.height = "100%";
+  return chart;
 }
 
 function initRcCharts() {
   const specs = [
-    ["pt", "5min",  "#f59e0b"],
-    ["pt", "15min", "#f59e0b"],
-    ["pt", "1hour", "#f59e0b"],
-    ["pd", "5min",  "#818cf8"],
-    ["pd", "15min", "#818cf8"],
-    ["pd", "1hour", "#818cf8"],
+    ["pt", "5min",  "#f59e0b", "rc-pt-5min",   SLOTS_PER_DAY["5min"]  * KEEP_DAYS["5min"]],
+    ["pt", "15min", "#f59e0b", "rc-pt-15min",  SLOTS_PER_DAY["15min"] * KEEP_DAYS["15min"]],
+    ["pt", "1hour", "#f59e0b", "rc-pt-1hour",  SLOTS_PER_DAY["1hour"] * KEEP_DAYS["1hour"]],
+    ["pd", "5min",  "#818cf8", "rc-pd-5min",   SLOTS_PER_DAY["5min"]  * KEEP_DAYS["5min"]],
+    ["pd", "15min", "#818cf8", "rc-pd-15min",  SLOTS_PER_DAY["15min"] * KEEP_DAYS["15min"]],
+    ["pd", "1hour", "#818cf8", "rc-pd-1hour",  SLOTS_PER_DAY["1hour"] * KEEP_DAYS["1hour"]],
   ];
-  specs.forEach(([sym, iv, color]) => {
+  for (const [sym, iv, color, cid, cnt] of specs) {
     const key = `${sym}-${iv}`;
-    if (!rcCharts[key])
-      rcCharts[key] = makeRcChart(`rc-${sym}-${iv}`, color);
-  });
+    if (!rcCharts[key]) {
+      rcCharts[key] = makeRcChart(key, color, cid, cnt);
+    }
+  }
 }
 
 async function loadRcChart(sym, interval) {
   const key      = `${sym}-${interval}`;
-  const canvasId = `rc-${sym}-${interval}`;
+  const scrollId = `rc-${sym}-${interval}-scroll`;
   const loadId   = `rc-${sym}-${interval}-loading`;
   const countId  = `rc-${sym}-${interval}-count`;
   const symFull  = `KQ.m@GFEX.${sym}`;
-
-  const canvas  = document.getElementById(canvasId);
-  const loading = document.getElementById(loadId);
-  const c       = rcCharts[key];
+  const c = rcCharts[key];
   if (!c) return;
 
+  const days = KEEP_DAYS[interval];
+  const { labels } = FIXED_AXIS[interval];
+
   try {
-    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symFull)}&interval_=${interval}&limit=200`);
+    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symFull)}&interval_=${interval}&limit=200&days=${days}`);
     const json = await res.json();
     const recs = json.records || [];
 
-    if (recs.length === 0) {
-      // 纯前端时间轴，无数据时显示空图
-      c.data.labels  = FIXED_AXIS[interval];
-      c.data.datasets[0].data = FIXED_AXIS[interval].map(() => null);
-      loading.style.display = "none";
-      canvas.style.display  = "block";
+    if (!recs.length) {
+      c.data.labels = labels;
+      c.data.datasets[0].data = labels.map(() => null);
       c.update("none");
+      document.getElementById(loadId).style.display = "none";
+      document.getElementById(scrollId).style.display = "block";
       document.getElementById(countId).textContent = "0 条";
       return;
     }
 
-    // 用 API 数据填充写死时间轴（时间槽 → 最近邻价格）
     const priceMap = {};
-    let lastPrice = null;
-    for (const r of recs) {
-      const d = new Date(r.datetime);
-      const key2 = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
-      priceMap[key2] = r.price;
-    }
-    lastPrice = null;
-    const prices = FIXED_AXIS[interval].map(label => {
-      if (priceMap[label] != null) lastPrice = priceMap[label];
-      return lastPrice;   // 无数据时用最近邻填充
-    });
+    for (const r of recs) priceMap[r.datetime] = r.price;
+    let last = null;
+    const prices = labels.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
 
-    // 轴标签：5min/15min 只显示小时:分钟，日期省略（当前交易日）
-    c.data.labels  = FIXED_AXIS[interval];
+    c.data.labels = labels;
     c.data.datasets[0].data = prices;
-    loading.style.display = "none";
-    canvas.style.display  = "block";
     c.update("none");
-    syncRcYRange(key);
+    syncYRange(c);
+
+    document.getElementById(loadId).style.display = "none";
+    document.getElementById(scrollId).style.display = "block";
     document.getElementById(countId).textContent = `${prices.filter(v => v != null).length} 条`;
   } catch (e) {
-    loading.textContent = "加载失败: " + e.message;
+    document.getElementById(loadId).textContent = "加载失败: " + e.message;
   }
 }
 
 function loadAllRcCharts() {
-  ["pt","pd"].forEach(sym =>
-    ["5min","15min","1hour"].forEach(iv => loadRcChart(sym, iv))
-  );
+  for (const sym of ["pt", "pd"])
+    for (const iv of ["5min", "15min", "1hour"])
+      loadRcChart(sym, iv);
 }
 
-// ── 工具函数 ──────────────────────────────────────────
-function fmt2(v) { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
-function fmtVol(v) { return v ? Number(v).toLocaleString() : "--"; }
-
+// ── 价格卡片更新 ─────────────────────────────────
 function updatePriceCard(prefix, id, q) {
   const p = fmt2(q.price);
   const c = q.change || 0;
@@ -685,13 +648,12 @@ function updatePriceCard(prefix, id, q) {
   stag.textContent = q.is_trading ? "● 交易中" : "○ 非交易时段";
 }
 
-// ── 轮询 ──────────────────────────────────────────────
-let currentMode      = "竞标";
-let jingbiaoTimer    = null;
+// ── 轮询 ─────────────────────────────────────────
+let jingbiaoTimer     = null;
 let richangPriceTimer = null;
 
 async function fetchQuote() {
-  const res  = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
+  const res = await fetch(`${API}/quote`, { signal: AbortSignal.timeout(5000) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return (await res.json()).data || {};
 }
@@ -701,15 +663,13 @@ async function pollJingbiao() {
     const data = await fetchQuote();
     const now  = new Date();
     const t    = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
-
-    ["KQ.m@GFEX.pt","KQ.m@GFEX.pd"].forEach(sym => {
-      const q  = data[sym]; if (!q) return;
+    for (const sym of ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"]) {
+      const q  = data[sym]; if (!q) continue;
       const id = sym.includes(".pt") ? "pt" : "pd";
       updatePriceCard("", id, q);
       pushJbBuf(sym, q.price, now);
       refreshJbChart(id);
-    });
-
+    }
     document.getElementById("status-text").innerHTML = '<span class="status-dot live"></span>已连接';
     document.getElementById("last-update").textContent = "更新: " + t;
   } catch (e) {
@@ -723,11 +683,11 @@ async function pollRichangPrice() {
     const data = await fetchQuote();
     const now  = new Date();
     const t    = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
-    ["KQ.m@GFEX.pt","KQ.m@GFEX.pd"].forEach(sym => {
-      const q  = data[sym]; if (!q) return;
+    for (const sym of ["KQ.m@GFEX.pt", "KQ.m@GFEX.pd"]) {
+      const q  = data[sym]; if (!q) continue;
       const id = sym.includes(".pt") ? "pt" : "pd";
       updatePriceCard("r-", id, q);
-    });
+    }
     document.getElementById("status-text").innerHTML = '<span class="status-dot live"></span>已连接';
     document.getElementById("last-update").textContent = "价格更新: " + t;
   } catch (e) {
@@ -736,19 +696,17 @@ async function pollRichangPrice() {
   richangPriceTimer = setTimeout(pollRichangPrice, 5 * 60 * 1000);
 }
 
-// ── 模式切换 ──────────────────────────────────────────
+// ── 模式切换 ─────────────────────────────────────
 async function fetchMode() {
   try {
     const res  = await fetch(`${API}/mode`);
     const json = await res.json();
     const mode = json.mode || "竞标";
-    currentMode = mode;
 
     document.getElementById("mode-interval").textContent =
       mode === "竞标"
         ? "价格每 2 秒实时更新 · 铂金/钯金独立走势"
         : `价格每 5 分钟更新 · 历史数据每 ${json.interval / 60} 分钟入库`;
-
     document.getElementById("btn-jingbiao").className = "mode-btn" + (mode === "竞标" ? " active" : "");
     document.getElementById("btn-richang").className  = "mode-btn" + (mode === "日常"  ? " active" : "");
 
