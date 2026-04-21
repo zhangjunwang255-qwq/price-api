@@ -23,6 +23,7 @@
       color: var(--text);
       min-height: 100vh;
       padding: 1.5rem 1rem;
+      overflow-x: hidden;
     }
     header { text-align: center; margin-bottom: 1.5rem; }
     header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
@@ -63,6 +64,7 @@
     .chart-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem;
+      overflow: hidden;
     }
     .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
     .chart-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
@@ -75,13 +77,14 @@
     /* 日常模式：单列竖排，每张图独立横向滚动 */
     .charts-6grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 
-    /* 滚动容器：固定高度，横向溢出滚动 */
+    /* 滚动容器：固定高度，宽度100%由父级约束，横向溢出滚动 */
     .chart-scroll {
       overflow-x: auto;
       overflow-y: hidden;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
+      width: 100%;
       height: 120px;
     }
     @media (min-width: 640px)  { .chart-scroll { height: 140px; } }
