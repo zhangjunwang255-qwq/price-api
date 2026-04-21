@@ -72,9 +72,8 @@
     .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 640px) { .charts-2col { grid-template-columns: 1fr; } }
 
-    /* 日常模式：2列×3行，canvas 可横向滚动 */
-    .charts-6grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 640px) { .charts-6grid { grid-template-columns: 1fr; } }
+    /* 日常模式：单列竖排，每张图独立横向滚动 */
+    .charts-6grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
 
     /* 滚动容器：固定高度，横向溢出滚动 */
     .chart-scroll {
@@ -355,23 +354,26 @@ function buildMultiDayAxis(days, intervalMin) {
   const stepMap = { 5: 5, 15: 15, 60: 60 };
   const step = stepMap[intervalMin] || 5;
   const today = new Date();
-  const todayStr = today.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
-  const pastStr = (d) => {
-    const dt = new Date(today);
-    dt.setDate(dt.getDate() - d);
-    return dt.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+
+  // 生成完整日期时间字符串，格式与后端一致：YYYY-MM-DD HH:MM
+  const fmtDate = (dt, h, m) => {
+    const y = dt.getFullYear();
+    const mo = String(dt.getMonth() + 1).padStart(2, "0");
+    const da = String(dt.getDate()).padStart(2, "0");
+    const hh = String(h).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+    return `${y}-${mo}-${da} ${hh}:${mm}`;
   };
-  const fmtHM = (h, m) => `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`;
 
   const labels = [];
-  const dayIdx  = [];   // 每槽属于第几天（0=今天）
-  // 生成顺序：昨天→前天→...→今天（前端滚动时越靠右越新）
+  const dayIdx  = [];
+  // 生成顺序：昨天→前天→...→今天
   for (let d = days - 1; d >= 0; d--) {
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - d);
     const daySlots = _daySlots(step);
-    for (let i = 0; i < daySlots.length; i++) {
-      const s = daySlots[i];
-      const prefix = (d === 0) ? todayStr : pastStr(d);
-      labels.push(i === 0 ? `${prefix} ${fmtHM(s.h, s.m)}` : fmtHM(s.h, s.m));
+    for (const s of daySlots) {
+      labels.push(fmtDate(dt, s.h, s.m));
       dayIdx.push(d);
     }
   }
@@ -561,9 +563,15 @@ function makeRcChart(key, color, canvasId, slotCount) {
   const canvas = document.getElementById(canvasId);
   const ctx    = canvas.getContext("2d");
   const chart  = new Chart(ctx, baseChartOptions(color));
-  // 动态设置 canvas 宽度 → 横向可滚动
-  canvas.style.width  = `${slotCount * PX_PER_SLOT}px`;
+  // 设置 canvas 及其外层 div 宽度 → 横向可滚动
+  const w = slotCount * PX_PER_SLOT;
+  canvas.style.width  = `${w}px`;
   canvas.style.height = "100%";
+  // 外层 div 也要同宽，chart-scroll 才能检测到溢出
+  if (canvas.parentElement) {
+    canvas.parentElement.style.width = `${w}px`;
+    canvas.parentElement.style.height = "100%";
+  }
   return chart;
 }
 
