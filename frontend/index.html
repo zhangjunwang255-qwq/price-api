@@ -60,7 +60,7 @@
     .session-tag.live   { color: var(--up); background: rgba(34,197,94,0.12); }
     .session-tag.closed { color: var(--dn); background: rgba(239,68,68,0.12); }
 
-    /* 图表卡片 */
+    /* 图表卡片（竞标模式用） */
     .chart-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem;
@@ -74,43 +74,10 @@
     .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     @media (max-width: 640px) { .charts-2col { grid-template-columns: 1fr; } }
 
-    /* 日常模式：单列竖排，每张图独立横向滚动 */
-    .charts-6grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
-
-    /* 滚动容器：固定高度，横向溢出滚动 */
-    .chart-scroll {
-      overflow-x: auto;
-      overflow-y: hidden;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
-      width: 100%;
-      height: 120px;
-    }
-    @media (min-width: 640px)  { .chart-scroll { height: 140px; } }
-    @media (min-width: 960px)  { .chart-scroll { height: 160px; } }
-    .chart-scroll::-webkit-scrollbar { height: 4px; }
-    .chart-scroll::-webkit-scrollbar-track { background: transparent; }
-    .chart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-    /* Y轴固定区 + 可滚动图表区 */
-    .chart-inner { display: flex; height: 100%; }
-    .yaxis-wrap  { flex-shrink: 0; width: 52px; height: 100%; position: relative; }
-    .yaxis-wrap canvas { position: absolute; top: 0; left: 0; width: 52px !important; height: 100% !important; }
-    .chart-body  { flex: 1; height: 100%; position: relative; overflow: hidden; }
-    .chart-body canvas { display: block; height: 100% !important; }
-
     /* 竞标模式图表容器 */
-    .chart-canvas-wrap {
-      height: 120px;
-    }
+    .chart-canvas-wrap { height: 120px; }
     @media (min-width: 640px)  { .chart-canvas-wrap { height: 140px; } }
     @media (min-width: 960px)  { .chart-canvas-wrap { height: 160px; } }
-
-    .chart-loading {
-      height: 100px; display: flex; align-items: center;
-      justify-content: center; color: var(--muted); font-size: 0.75rem;
-    }
 
     /* 模式切换 */
     .mode-interval { font-size: 0.68rem; color: var(--muted); text-align: center; margin-bottom: 0.4rem; }
@@ -139,14 +106,6 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
     #richang-view { display: none; }
-
-    /* 日常模式分组标题 */
-    .sym-label {
-      font-size: 0.78rem; font-weight: 700;
-      letter-spacing: 0.08em; margin: 0.8rem 0 0.4rem; padding-left: 0.2rem;
-    }
-    .sym-label.pt { color: var(--pt-color); }
-    .sym-label.pd { color: var(--pd-color); }
   </style>
 </head>
 <body>
@@ -232,94 +191,6 @@
       <div id="r-pd-session" class="session-tag closed" style="margin-top:.3rem">加载中</div>
     </div>
   </div>
-
-  <!-- 铂金 3 张 -->
-  <div class="sym-label pt">▸ 铂金 Platinum</div>
-  <div class="charts-6grid">
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PT · 5 分钟</span>
-        <span class="chart-count" id="rc-pt-5min-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pt-5min-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pt-5min-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-5min-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pt-5min"></canvas></div>
-        </div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PT · 15 分钟</span>
-        <span class="chart-count" id="rc-pt-15min-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pt-15min-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pt-15min-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-15min-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pt-15min"></canvas></div>
-        </div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PT · 1 小时</span>
-        <span class="chart-count" id="rc-pt-1hour-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pt-1hour-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pt-1hour-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-1hour-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pt-1hour"></canvas></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 钯金 3 张 -->
-  <div class="sym-label pd">▸ 钯金 Palladium</div>
-  <div class="charts-6grid">
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PD · 5 分钟</span>
-        <span class="chart-count" id="rc-pd-5min-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pd-5min-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pd-5min-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-5min-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pd-5min"></canvas></div>
-        </div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PD · 15 分钟</span>
-        <span class="chart-count" id="rc-pd-15min-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pd-15min-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pd-15min-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-15min-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pd-15min"></canvas></div>
-        </div>
-      </div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-header">
-        <span class="chart-title">PD · 1 小时</span>
-        <span class="chart-count" id="rc-pd-1hour-count">--</span>
-      </div>
-      <div class="chart-loading" id="rc-pd-1hour-loading">加载中...</div>
-      <div class="chart-scroll" id="rc-pd-1hour-scroll" style="display:none">
-        <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-1hour-yaxis"></canvas></div>
-          <div class="chart-body"><canvas id="rc-pd-1hour"></canvas></div>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <div class="status-bar">
@@ -331,12 +202,9 @@
 <script>
 const API      = window.location.origin;
 const MAX_JB   = 80;
-const TICK_STEP = 0.5;  // Y轴固定步长（元/克）
+const TICK_STEP = 0.5;
 
-// ────────────────────────────────────────────────────
-//  写死时间轴（广期所白盘三节）
-//  第一节 09:00-10:15 | 第二节 10:30-11:30 | 第三节 13:30-15:00
-// ────────────────────────────────────────────────────
+// ── 写死时间轴（广期所白盘三节）──────────────────────
 const DAY_SECTIONS = [
   { h: 9,  m: 0,  eh: 10, em: 15 },
   { h: 10, m: 30, eh: 11, em: 30 },
@@ -361,93 +229,35 @@ function _daySlots(intervalMin) {
   return out;
 }
 
-/**
- * 构建多天固定时间轴标签。
- * days: N天（从今天往前）
- * intervalMin: 5 | 15 | 60
- * 返回 { labels: string[], days: int[] }  days[i] 表示第 i 个槽对应的"距离今天的天数"（0=今天）
- */
-function buildMultiDayAxis(days, intervalMin) {
-  const stepMap = { 5: 5, 15: 15, 60: 60 };
-  const step = stepMap[intervalMin] || 5;
-  const today = new Date();
-
-  const fmtDate = (dt, h, m) => {
-    const y  = dt.getFullYear();
-    const mo = String(dt.getMonth() + 1).padStart(2, "0");
-    const da = String(dt.getDate()).padStart(2, "0");
-    const hh = String(h).padStart(2, "0");
-    const mm = String(m).padStart(2, "0");
-    return `${y}-${mo}-${da} ${hh}:${mm}`;
-  };
-
-  const labels = [];
-  const dayIdx  = [];
-  // 生成顺序：昨天→前天→...→今天
-  for (let d = days - 1; d >= 0; d--) {
-    const dt = new Date(today);
-    dt.setDate(dt.getDate() - d);
-    const daySlots = _daySlots(step);
-    for (const s of daySlots) {
-      labels.push(fmtDate(dt, s.h, s.m));
-      dayIdx.push(d);
-    }
-  }
-  return { labels, dayIdx };
-}
-
-// 各间隔的 slot 数量（每天）
-const SLOTS_PER_DAY = {
-  "5min":   _daySlots(5).length,
-  "15min":  _daySlots(15).length,
-  "1hour":  _daySlots(60).length,
-};
-
-// 数据保留天数
-const KEEP_DAYS = { "5min": 2, "15min": 3, "1hour": 10 };
-
-// 各图表的固定轴（预生成，避免重复计算）
-const FIXED_AXIS = {};
-for (const [iv, days] of Object.entries(KEEP_DAYS)) {
-  FIXED_AXIS[iv] = buildMultiDayAxis(days, iv === "1hour" ? 60 : iv === "15min" ? 15 : 5);
-}
-
-// 每槽像素宽度（加大让X轴标签间距更宽）
-const PX_PER_SLOT = 32;
+// 竞标模式用：当天5min时间轴标签（HH:MM格式）
+const JB_LABELS = _daySlots(5).map(s =>
+  `${String(s.h).padStart(2,"0")}:${String(s.m).padStart(2,"0")}`
+);
 
 // ── 工具 ──────────────────────────────────────────
 function _roundHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
 function fmt2(v)       { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
 function fmtVol(v)     { return v ? Number(v).toLocaleString() : "--"; }
 
-/**
- * X轴 tick 格式化回调：
- * - 每日的第一个槽：显示 "MM-DD HH:MM"
- * - 其余槽：只显示 "HH:MM"
- */
-// totalSlots 由 rcChartOptions 传入，决定每几个槽显示一个标签
-function xTickCallback(value, index, dayIdxArr, showDate, totalSlots) {
-  const str = String(value);
-  // 根据总槽数自动决定间隔：槽多则跳着显示，拉大间距
-  // PX_PER_SLOT=32，10px 字体每字符约 6px，期望至少 ~80px 一个标签
-  let step = 1;
-  if (totalSlots >= 120)      step = 5;   // 5min两日 ≈ 98槽→每隔5格≈160px
-  else if (totalSlots >= 60) step = 3;   // 5min单日≈49槽 15min三日≈51槽→每隔3格≈96px
-  else if (totalSlots >= 30) step = 2;   // 15min两日≈34槽 1hour五日≈40槽
-
-  if (index % step !== 0) return ""; // 跳过
-
-  // 显示日期+时间：新的一天才显示日期，其余只显示时间
-  const time = str.split(" ")[1]; // "HH:MM"
-  if (!showDate) return time;
-  if (index === 0 || (dayIdxArr[index] !== dayIdxArr[index - 1])) {
-    const parts = str.split(" ");
-    if (parts.length === 2) return parts[0].slice(5) + " " + parts[1]; // "04-21 09:00"
+function syncYRange(chartOrArr) {
+  const charts = Array.isArray(chartOrArr) ? chartOrArr : [chartOrArr];
+  const allVals = [];
+  for (const c of charts) {
+    if (!c) continue;
+    allVals.push(...c.data.datasets[0].data.filter(v => v != null && !isNaN(v)));
   }
-  return time;
+  if (!allVals.length) return;
+  const lo = _roundHalf(Math.min(...allVals));
+  const hi = _roundHalf(Math.max(...allVals));
+  for (const c of charts) {
+    if (!c) continue;
+    c.options.scales.y.min = lo - TICK_STEP;
+    c.options.scales.y.max = hi + TICK_STEP;
+    c.update("none");
+  }
 }
 
-// ── Chart 基线配置（竞标模式用，无特殊X轴）───────────
+// ── Chart 基线配置（竞标模式）────────────────────────
 function baseChartOptions(color) {
   return {
     type: "line",
@@ -474,8 +284,9 @@ function baseChartOptions(color) {
           grid: { color: "rgba(45,49,72,0.5)" },
           ticks: {
             color: "#6b7280",
-            autoSkip: false,
-            maxRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 10,
+            maxRotation: 0,
             font: { size: 9 },
           },
         },
@@ -503,146 +314,13 @@ function baseChartOptions(color) {
   };
 }
 
-/**
- * 日常模式 Chart 配置（带X轴间隔控制 + 独立Y轴ID）
- */
-function rcChartOptions(color, yAxisId, dayIdxArr, totalSlots) {
-  return {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        data: [],
-        borderColor: color,
-        backgroundColor: "transparent",
-        fill: false,
-        tension: 0.35,
-        borderWidth: 1.8,
-        pointRadius: 0,
-        spanGaps: true,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      interaction: { mode: "index", intersect: false },
-      scales: {
-        x: {
-          grid: { color: "rgba(45,49,72,0.5)" },
-          ticks: {
-            color: "#6b7280",
-            autoSkip: false,
-            maxRotation: 45,
-            font: { size: 10 },
-            // 不设 maxTicksLimit，改由 callback 控制每 N 槽显示一个标签，自然拉大间距
-            callback: function(value, index) {
-              return xTickCallback(String(value), index, dayIdxArr, false, totalSlots);
-            },
-          },
-        },
-        y: {
-          id: yAxisId,
-          position: "left",
-          grid: { color: "rgba(45,49,72,0.5)" },
-          ticks: {
-            color: "#6b7280",
-            font: { size: 10 },
-            callback: v => v.toFixed(2),
-            stepSize: TICK_STEP,
-          },
-        },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: "#1a1d27",
-          borderColor: "#2d3148",
-          borderWidth: 1,
-          titleColor: "#e2e4ea",
-          bodyColor: "#9ca3af",
-        },
-      },
-    },
-  };
-}
-
-/**
- * Y轴独立配置（只有Y轴，无数据，与主图共享 yAxisId 同步刻度）
- */
-function yAxisOptions(yAxisId) {
-  return {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [{
-        data: [],
-        borderColor: "transparent",
-        backgroundColor: "transparent",
-        fill: false,
-        tension: 0,
-        borderWidth: 0,
-        pointRadius: 0,
-      }],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      interaction: { mode: false },
-      scales: {
-        x: { display: false },
-        y: {
-          id: yAxisId,
-          position: "left",
-          ticks: {
-            color: "#6b7280",
-            font: { size: 10 },
-            callback: v => v.toFixed(2),
-            stepSize: TICK_STEP,
-          },
-          grid: { display: false },
-        },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: { enabled: false },
-      },
-    },
-  };
-}
-
-function syncYRange(chartOrArr) {
-  const charts = Array.isArray(chartOrArr) ? chartOrArr : [chartOrArr];
-  // 收集所有图表的非空价格
-  const allVals = [];
-  for (const c of charts) {
-    if (!c) continue;
-    const vals = c.data.datasets[0].data.filter(v => v != null && !isNaN(v));
-    allVals.push(...vals);
-  }
-  if (!allVals.length) return;
-  const lo = _roundHalf(Math.min(...allVals));
-  const hi = _roundHalf(Math.max(...allVals));
-  const yMin = lo - TICK_STEP;
-  const yMax = hi + TICK_STEP;
-  for (const c of charts) {
-    if (!c) continue;
-    c.options.scales.y.min = yMin;
-    c.options.scales.y.max = yMax;
-    c.update("none");
-  }
-}
-
 // ── 竞标模式 ─────────────────────────────────────
 const jbBuf    = { pt: [], pd: [] };
 const jbCharts = { pt: null, pd: null };
 
 function makeJbChart(canvasId, color) {
   const ctx = document.getElementById(canvasId).getContext("2d");
-  const chart = new Chart(ctx, baseChartOptions(color));
-  chart.options.scales.x.ticks.maxRotation = 0;
-  return chart;
+  return new Chart(ctx, baseChartOptions(color));
 }
 
 function initJbCharts() {
@@ -660,19 +338,21 @@ async function loadJbHistory(key) {
     const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symMap[key])}&interval_=5min&limit=200&days=1`);
     const json = await res.json();
     const recs = json.records || [];
-    const { labels } = FIXED_AXIS["5min"];
-
     if (!recs.length) {
-      c.data.labels = labels;
-      c.data.datasets[0].data = labels.map(() => null);
+      c.data.labels = JB_LABELS;
+      c.data.datasets[0].data = JB_LABELS.map(() => null);
       c.update("none");
       return;
     }
+    // 后端返回 "YYYY-MM-DD HH:MM"，取时间部分匹配 JB_LABELS
     const priceMap = {};
-    for (const r of recs) priceMap[r.datetime] = r.price;
+    for (const r of recs) {
+      const timePart = r.datetime.split(" ")[1];
+      if (timePart) priceMap[timePart] = r.price;
+    }
     let last = null;
-    const prices = labels.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
-    c.data.labels = labels;
+    const prices = JB_LABELS.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
+    c.data.labels = JB_LABELS;
     c.data.datasets[0].data = prices;
     c.update("none");
     syncYRange(c);
@@ -692,14 +372,7 @@ function refreshJbChart(key) {
   const c = jbCharts[key];
   if (!c) return;
   const buf = jbBuf[key];
-  const { labels } = FIXED_AXIS["5min"];
-
-  if (!buf.length) {
-    if (c.data.datasets[0].data.some(v => v != null)) return;
-  }
-  const now = new Date();
-  const nowSlot = `${String(now.getHours()).padStart(2,"0")}:${String(Math.floor(now.getMinutes()/5)*5).padStart(2,"0")}`;
-  const nowIdx = labels.indexOf(nowSlot);
+  if (!buf.length) return;
 
   const slotMap = {};
   for (const b of buf) {
@@ -707,121 +380,20 @@ function refreshJbChart(key) {
     const sk = `${String(b.t.getHours()).padStart(2,"0")}:${String(m5).padStart(2,"0")}`;
     slotMap[sk] = b.price;
   }
+  const now = new Date();
+  const nowSlot = `${String(now.getHours()).padStart(2,"0")}:${String(Math.floor(now.getMinutes()/5)*5).padStart(2,"0")}`;
+  const nowIdx = JB_LABELS.indexOf(nowSlot);
+
   let last = null;
-  const prices = labels.map((l, i) => {
+  const prices = JB_LABELS.map((l, i) => {
     if (nowIdx >= 0 && i > nowIdx) return null;
     return slotMap[l] != null ? (last = slotMap[l]) : last;
   });
-  c.data.labels = labels;
+  c.data.labels = JB_LABELS;
   c.data.datasets[0].data = prices;
   c.update("none");
   syncYRange(c);
   document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
-}
-
-// ── 日常模式 ─────────────────────────────────────
-// rcCharts[key] = { main: Chart, yaxis: Chart }
-// key: "pt-5min" / "pt-15min" / "pt-1hour" / "pd-..."
-const rcCharts = {};
-
-function makeRcChart(key, color, canvasId, yaxisId, slotCount) {
-  const mainCanvas  = document.getElementById(canvasId);
-  const yaxisCanvas = document.getElementById(yaxisId);
-  const dayIdx      = FIXED_AXIS[key.split("-")[1]]?.dayIdx || [];
-
-  // 主图（无Y轴，X轴控制tick密度）
-  const mainCtx  = mainCanvas.getContext("2d");
-  const mainChart = new Chart(mainCtx, rcChartOptions(color, key, dayIdx, slotCount));
-
-  // Y轴独立图（只有Y轴，无X轴，与主图共享 yAxisId）
-  const yaxisCtx  = yaxisCanvas.getContext("2d");
-  const yaxisChart = new Chart(yaxisCtx, yAxisOptions(key));
-
-  // 设置 canvas 宽度 → 横向可滚动
-  const w = slotCount * PX_PER_SLOT;
-  mainCanvas.style.width = `${w}px`;
-
-  // chart-body 容器也要同宽，overflow-x: auto 才能检测到溢出
-  const bodyEl = mainCanvas.closest(".chart-body");
-  if (bodyEl) bodyEl.style.width = `${w}px`;
-
-  // Y轴canvas高度 = chart-scroll高度，由CSS控制，此处仅确保尺寸
-  const scrollEl = mainCanvas.closest(".chart-scroll");
-  if (scrollEl) {
-    const h = scrollEl.clientHeight || 140;
-    yaxisCanvas.style.height = `${h}px`;
-  }
-
-  return { main: mainChart, yaxis: yaxisChart };
-}
-
-function initRcCharts() {
-  const specs = [
-    ["pt", "5min",   "#f59e0b", "rc-pt-5min",   "rc-pt-5min-yaxis",   SLOTS_PER_DAY["5min"]  * KEEP_DAYS["5min"]],
-    ["pt", "15min",  "#f59e0b", "rc-pt-15min",  "rc-pt-15min-yaxis",  SLOTS_PER_DAY["15min"] * KEEP_DAYS["15min"]],
-    ["pt", "1hour",  "#f59e0b", "rc-pt-1hour",  "rc-pt-1hour-yaxis",  SLOTS_PER_DAY["1hour"] * KEEP_DAYS["1hour"]],
-    ["pd", "5min",   "#818cf8", "rc-pd-5min",   "rc-pd-5min-yaxis",   SLOTS_PER_DAY["5min"]  * KEEP_DAYS["5min"]],
-    ["pd", "15min",  "#818cf8", "rc-pd-15min",  "rc-pd-15min-yaxis",  SLOTS_PER_DAY["15min"] * KEEP_DAYS["15min"]],
-    ["pd", "1hour",  "#818cf8", "rc-pd-1hour",  "rc-pd-1hour-yaxis",  SLOTS_PER_DAY["1hour"] * KEEP_DAYS["1hour"]],
-  ];
-  for (const [sym, iv, color, cid, yid, cnt] of specs) {
-    const k = `${sym}-${iv}`;
-    if (!rcCharts[k]) {
-      rcCharts[k] = makeRcChart(k, color, cid, yid, cnt);
-    }
-  }
-}
-
-async function loadRcChart(sym, interval) {
-  const key      = `${sym}-${interval}`;
-  const scrollId = `rc-${sym}-${interval}-scroll`;
-  const loadId   = `rc-${sym}-${interval}-loading`;
-  const countId  = `rc-${sym}-${interval}-count`;
-  const symFull  = `KQ.m@GFEX.${sym}`;
-  const pair     = rcCharts[key];
-  if (!pair) return;
-
-  const { main, yaxis } = pair;
-  const { labels } = FIXED_AXIS[interval];
-
-  try {
-    const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symFull)}&interval_=${interval}&limit=200&days=${KEEP_DAYS[interval]}`);
-    const json = await res.json();
-    const recs = json.records || [];
-
-    if (!recs.length) {
-      main.data.labels = labels;
-      main.data.datasets[0].data = labels.map(() => null);
-      main.update("none");
-      document.getElementById(loadId).style.display = "none";
-      document.getElementById(scrollId).style.display = "block";
-      document.getElementById(countId).textContent = "0 条";
-      return;
-    }
-
-    const priceMap = {};
-    for (const r of recs) priceMap[r.datetime] = r.price;
-    let last = null;
-    const prices = labels.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
-
-    main.data.labels = labels;
-    main.data.datasets[0].data = prices;
-    main.update("none");
-    // Y轴同步
-    syncYRange([main, yaxis]);
-
-    document.getElementById(loadId).style.display = "none";
-    document.getElementById(scrollId).style.display = "block";
-    document.getElementById(countId).textContent = `${prices.filter(v => v != null).length} 条`;
-  } catch (e) {
-    document.getElementById(loadId).textContent = "加载失败: " + e.message;
-  }
-}
-
-function loadAllRcCharts() {
-  for (const sym of ["pt", "pd"])
-    for (const iv of ["5min", "15min", "1hour"])
-      loadRcChart(sym, iv);
 }
 
 // ── 价格卡片更新 ─────────────────────────────────
@@ -829,7 +401,7 @@ function updatePriceCard(prefix, id, q) {
   const p = fmt2(q.price);
   const c = q.change || 0;
   document.getElementById(`${prefix}${id}-price`).innerHTML = `${p}<span class="unit"> 元/克</span>`;
-  document.getElementById(`${prefix}${id}-change`).textContent = `${fmt2(c)}`;
+  document.getElementById(`${prefix}${id}-change`).textContent = fmt2(c);
   document.getElementById(`${prefix}${id}-vol`).textContent = fmtVol(q.volume);
   const ctag = document.getElementById(`${prefix}${id}-change-tag`);
   ctag.className = "change-tag " + (c > 0 ? "up" : c < 0 ? "dn" : "flat");
@@ -905,16 +477,11 @@ async function fetchMode() {
       document.getElementById("jingbiao-view").style.display = "none";
       document.getElementById("richang-view").style.display  = "block";
       clearTimeout(jingbiaoTimer);
-      initRcCharts();
-      loadAllRcCharts();
       pollRichangPrice();
-      if (!window._histTimer)
-        window._histTimer = setInterval(loadAllRcCharts, 5 * 60 * 1000);
     } else {
       document.getElementById("jingbiao-view").style.display = "block";
       document.getElementById("richang-view").style.display  = "none";
       clearTimeout(richangPriceTimer);
-      if (window._histTimer) { clearInterval(window._histTimer); window._histTimer = null; }
       initJbCharts();
       pollJingbiao();
     }
