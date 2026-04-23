@@ -200,9 +200,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-const API      = window.location.origin;
-const MAX_JB   = 80;
-const TICK_STEP = 0.5;
+const API    = window.location.origin;
+const MAX_JB  = 80;
 
 // ── 写死时间轴（广期所白盘三节）──────────────────────
 const DAY_SECTIONS = [
@@ -235,27 +234,8 @@ const JB_LABELS = _daySlots(5).map(s =>
 );
 
 // ── 工具 ──────────────────────────────────────────
-function _roundHalf(v) { return Math.round(v / TICK_STEP) * TICK_STEP; }
-function fmt2(v)       { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
-function fmtVol(v)     { return v ? Number(v).toLocaleString() : "--"; }
-
-function syncYRange(chartOrArr) {
-  const charts = Array.isArray(chartOrArr) ? chartOrArr : [chartOrArr];
-  const allVals = [];
-  for (const c of charts) {
-    if (!c) continue;
-    allVals.push(...c.data.datasets[0].data.filter(v => v != null && !isNaN(v)));
-  }
-  if (!allVals.length) return;
-  const lo = _roundHalf(Math.min(...allVals));
-  const hi = _roundHalf(Math.max(...allVals));
-  for (const c of charts) {
-    if (!c) continue;
-    c.options.scales.y.min = lo - TICK_STEP;
-    c.options.scales.y.max = hi + TICK_STEP;
-    c.update("none");
-  }
-}
+function fmt2(v)   { return (v == null || isNaN(v)) ? "--" : Number(v).toFixed(2); }
+function fmtVol(v) { return v ? Number(v).toLocaleString() : "--"; }
 
 // ── Chart 基线配置（竞标模式）────────────────────────
 function baseChartOptions(color) {
@@ -296,7 +276,7 @@ function baseChartOptions(color) {
             color: "#6b7280",
             font: { size: 10 },
             callback: v => v.toFixed(2),
-            stepSize: TICK_STEP,
+            maxTicksLimit: 7,
           },
         },
       },
@@ -355,7 +335,6 @@ async function loadJbHistory(key) {
     c.data.labels = JB_LABELS;
     c.data.datasets[0].data = prices;
     c.update("none");
-    syncYRange(c);
     document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
   } catch (e) {
     console.warn("loadJbHistory", key, e);
@@ -392,7 +371,6 @@ function refreshJbChart(key) {
   c.data.labels = JB_LABELS;
   c.data.datasets[0].data = prices;
   c.update("none");
-  syncYRange(c);
   document.getElementById(`jb-${key}-count`).textContent = `${prices.filter(v => v != null).length} 条`;
 }
 
