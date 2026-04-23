@@ -16,20 +16,27 @@
       --up:       #22c55e;
       --dn:       #ef4444;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; overflow-x: hidden; }
+    html { overflow: hidden; }
     body {
       font-family: "SF Mono", "Fira Code", monospace;
       background: var(--bg); color: var(--text);
       min-height: 100vh; padding: 1.5rem 1rem;
-      overflow-x: hidden;
+      overflow: hidden;
     }
     header { text-align: center; margin-bottom: 1.5rem; }
     header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
     header .subtitle { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
-    .view { max-width: 960px; margin: 0 auto; }
+    .view {
+      max-width: 960px; margin: 0 auto;
+      overflow: hidden;
+    }
 
     /* 价格卡片 */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .grid-2 {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;
+      max-width: 100%;
+    }
     @media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
     .card {
       background: var(--card); border: 1px solid var(--border);
@@ -62,12 +69,14 @@
     .chart-card {
       background: var(--card); border: 1px solid var(--border);
       border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 1rem;
+      overflow: hidden;
     }
     .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
     .chart-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
     .chart-count { font-size: 0.62rem; color: var(--muted); }
     /* 竞标图高度：Y轴完全自适应，无滚动 */
-    #jb-chart { height: 200px; }
+    #jb-chart-wrap { width: 100%; max-width: 100%; overflow: hidden; position: relative; }
+    #jb-chart      { width: 100% !important; max-width: 100%; }
     @media (min-width: 640px)  { #jb-chart { height: 240px; } }
     @media (min-width: 960px)  { #jb-chart { height: 280px; } }
 
@@ -144,7 +153,7 @@
       <span class="chart-title">实时走势 · 铂金 &amp; 钯金</span>
       <span class="chart-count" id="jb-count">0 条</span>
     </div>
-    <canvas id="jb-chart"></canvas>
+    <div id="jb-chart-wrap"><canvas id="jb-chart"></canvas></div>
   </div>
 </div>
 
