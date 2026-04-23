@@ -74,11 +74,15 @@
     .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.7rem; }
     .chart-title { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
     .chart-count { font-size: 0.62rem; color: var(--muted); }
-    /* 竞标图高度：Y轴完全自适应，无滚动 */
-    #jb-chart-wrap { width: 100%; max-width: 100%; overflow: hidden; position: relative; }
-    #jb-chart      { width: 100% !important; max-width: 100%; }
-    @media (min-width: 640px)  { #jb-chart { height: 240px; } }
-    @media (min-width: 960px)  { #jb-chart { height: 280px; } }
+    /* 竞标图：两张并排 */
+    .jb-charts-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+      width: 100%; max-width: 100%;
+    }
+    @media (max-width: 640px) { .jb-charts-grid { grid-template-columns: 1fr; } }
+    .jb-chart-wrap { width: 100%; overflow: hidden; }
+    .jb-chart { width: 100% !important; height: 200px !important; }
+    @media (min-width: 960px) { .jb-chart { height: 240px !important; } }
 
     /* 模式切换 */
     .mode-interval { font-size: 0.68rem; color: var(--muted); text-align: center; margin-bottom: 0.4rem; }
@@ -150,10 +154,13 @@
   </div>
   <div class="chart-card">
     <div class="chart-header">
-      <span class="chart-title">实时走势 · 铂金 &amp; 钯金</span>
+      <span class="chart-title">实时走势</span>
       <span class="chart-count" id="jb-count">0 条</span>
     </div>
-    <div id="jb-chart-wrap"><canvas id="jb-chart"></canvas></div>
+    <div class="jb-charts-grid">
+      <div class="jb-chart-wrap"><canvas id="jb-pt-chart"></canvas></div>
+      <div class="jb-chart-wrap"><canvas id="jb-pd-chart"></canvas></div>
+    </div>
   </div>
 </div>
 
@@ -202,40 +209,27 @@ function ts(now) {
   return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}:${String(now.getSeconds()).padStart(2,"0")}`;
 }
 
-// ── 竞标模式：内存缓冲 + 一张组合图（完全自适应）───
+// ── 竞标模式：内存缓冲 + 两张独立图 ───
 const jbBuf = [];   // [{t, pt, pd}]
-let jbChart = null;
+let jbPtChart = null;
+let jbPdChart = null;
 
-function initJbChart() {
-  const ctx = document.getElementById("jb-chart").getContext("2d");
-  jbChart = new Chart(ctx, {
+function createChartOpts(label, color) {
+  return {
     type: "line",
     data: {
       labels: [],
-      datasets: [
-        {
-          label: "铂金 PT",
-          data: [],
-          borderColor: "#f59e0b",
-          backgroundColor: "rgba(245,158,11,0.08)",
-          fill: true,
-          tension: 0.35,
-          borderWidth: 1.8,
-          pointRadius: 0,
-          spanGaps: true,
-        },
-        {
-          label: "钯金 PD",
-          data: [],
-          borderColor: "#818cf8",
-          backgroundColor: "rgba(129,140,248,0.08)",
-          fill: true,
-          tension: 0.35,
-          borderWidth: 1.8,
-          pointRadius: 0,
-          spanGaps: true,
-        },
-      ],
+      datasets: [{
+        label,
+        data: [],
+        borderColor: color,
+        backgroundColor: color.replace(')', ',0.08)').replace('rgb', 'rgba'),
+        fill: true,
+        tension: 0.35,
+        borderWidth: 1.8,
+        pointRadius: 0,
+        spanGaps: true,
+      }],
     },
     options: {
       responsive: true,
@@ -247,26 +241,22 @@ function initJbChart() {
           grid: { color: "rgba(45,49,72,0.5)" },
           ticks: {
             color: "#6b7280",
-            maxTicksLimit: 8,
+            maxTicksLimit: 6,
             maxRotation: 0,
-            font: { size: 10 },
+            font: { size: 9 },
           },
         },
         y: {
-          // 不设min/max，让Chart.js根据数据自动适应
           grid: { color: "rgba(45,49,72,0.5)" },
           ticks: {
             color: "#6b7280",
-            font: { size: 10 },
+            font: { size: 9 },
             callback: v => v.toFixed(2),
           },
         },
       },
       plugins: {
-        legend: {
-          display: true,
-          labels: { color: "#9ca3af", font: { size: 11 } },
-        },
+        legend: { display: false },
         tooltip: {
           backgroundColor: "#1a1d27",
           borderColor: "#2d3148",
@@ -276,7 +266,18 @@ function initJbChart() {
         },
       },
     },
-  });
+  };
+}
+
+function initJbCharts() {
+  jbPtChart = new Chart(
+    document.getElementById("jb-pt-chart").getContext("2d"),
+    createChartOpts("铂金 PT", "#f59e0b")
+  );
+  jbPdChart = new Chart(
+    document.getElementById("jb-pd-chart").getContext("2d"),
+    createChartOpts("钯金 PD", "#818cf8")
+  );
 }
 
 // ── 价格卡片更新 ─────────────────────────────────
@@ -323,12 +324,16 @@ async function pollJingbiao() {
       jbBuf.push({ t: now, pt: ptPrice, pd: pdPrice });
       if (jbBuf.length > MAX_JB) jbBuf.shift();
 
-      if (!jbChart) initJbChart();
+      if (!jbPtChart) initJbCharts();
 
-      jbChart.data.labels = jbBuf.map(b => ts(b.t));
-      jbChart.data.datasets[0].data = jbBuf.map(b => b.pt);
-      jbChart.data.datasets[1].data = jbBuf.map(b => b.pd);
-      jbChart.update("none");
+      const labels = jbBuf.map(b => ts(b.t));
+      jbPtChart.data.labels = labels;
+      jbPtChart.data.datasets[0].data = jbBuf.map(b => b.pt);
+      jbPtChart.update("none");
+
+      jbPdChart.data.labels = labels;
+      jbPdChart.data.datasets[0].data = jbBuf.map(b => b.pd);
+      jbPdChart.update("none");
 
       document.getElementById("jb-count").textContent = `${jbBuf.length} 条`;
     }
