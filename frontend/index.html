@@ -16,14 +16,8 @@
       --up:       #22c55e;
       --dn:       #ef4444;
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; overflow-x: hidden; }
-    html { overflow: hidden; }
-    body {
-      font-family: "SF Mono", "Fira Code", monospace;
-      background: var(--bg); color: var(--text);
-      min-height: 100vh; padding: 1.5rem 1rem;
-      overflow: hidden;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { overflow-y: auto; }
     header { text-align: center; margin-bottom: 1.5rem; }
     header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; }
     header .subtitle { font-size: 0.75rem; color: var(--muted); margin-top: 0.3rem; }
@@ -88,8 +82,6 @@
       scrollbar-width: thin; scrollbar-color: var(--border) transparent;
       width: 100%; height: 120px;
     }
-    @media (min-width: 640px)  { .chart-scroll { height: 140px; } }
-    @media (min-width: 960px)  { .chart-scroll { height: 160px; } }
     .chart-scroll::-webkit-scrollbar { height: 4px; }
     .chart-scroll::-webkit-scrollbar-track { background: transparent; }
     .chart-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -207,7 +199,6 @@
       <div class="chart-loading" id="rc-pt-5min-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pt-5min-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-5min-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pt-5min"></canvas></div>
         </div>
       </div>
@@ -220,7 +211,6 @@
       <div class="chart-loading" id="rc-pt-15min-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pt-15min-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-15min-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pt-15min"></canvas></div>
         </div>
       </div>
@@ -233,7 +223,6 @@
       <div class="chart-loading" id="rc-pt-1hour-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pt-1hour-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pt-1hour-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pt-1hour"></canvas></div>
         </div>
       </div>
@@ -251,7 +240,6 @@
       <div class="chart-loading" id="rc-pd-5min-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pd-5min-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-5min-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pd-5min"></canvas></div>
         </div>
       </div>
@@ -264,7 +252,6 @@
       <div class="chart-loading" id="rc-pd-15min-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pd-15min-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-15min-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pd-15min"></canvas></div>
         </div>
       </div>
@@ -277,7 +264,6 @@
       <div class="chart-loading" id="rc-pd-1hour-loading">加载中...</div>
       <div class="chart-scroll" id="rc-pd-1hour-scroll" style="display:none">
         <div class="chart-inner">
-          <div class="yaxis-wrap"><canvas id="rc-pd-1hour-yaxis"></canvas></div>
           <div class="chart-body"><canvas id="rc-pd-1hour"></canvas></div>
         </div>
       </div>
@@ -496,19 +482,8 @@ function rcChartOptionsRC(color, yAxisId, dayIdxArr, totalSlots) {
   };
 }
 
-function yAxisOptionsRC(yAxisId) {
-  return {
-    type: "line",
-    data: { labels: [], datasets: [{ data: [], borderColor: "transparent", backgroundColor: "transparent", fill: false, tension: 0, borderWidth: 0, pointRadius: 0 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: false },
-      scales: { x: { display: false }, y: { id: yAxisId, position: "left", ticks: { color: "#6b7280", font: { size: 10 }, callback: v => v.toFixed(2), stepSize: TICK_STEP_RC }, grid: { display: false } } },
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-    },
-  };
-}
-
 function syncYRangeRC(charts) {
+  if (!charts.length) return;
   const allVals = [];
   for (const c of charts) {
     if (!c) continue;
@@ -527,31 +502,29 @@ function syncYRangeRC(charts) {
 
 const rcChartsRC = {};
 
-function makeRcChartRC(key, color, canvasId, yaxisId, slotCount) {
-  const mainCanvas  = document.getElementById(canvasId);
-  const yaxisCanvas = document.getElementById(yaxisId);
-  const dayIdx      = FIXED_AXIS_RC[key.split("-")[1]]?.dayIdx || [];
-  const mainChart   = new Chart(mainCanvas.getContext("2d"), rcChartOptionsRC(color, key, dayIdx, slotCount));
-  const yaxisChart  = new Chart(yaxisCanvas.getContext("2d"), yAxisOptionsRC(key));
+function makeRcChartRC(key, color, canvasId, slotCount) {
+  const mainCanvas = document.getElementById(canvasId);
+  const dayIdx     = FIXED_AXIS_RC[key.split("-")[1]]?.dayIdx || [];
+  const mainChart  = new Chart(mainCanvas.getContext("2d"), rcChartOptionsRC(color, key, dayIdx, slotCount));
   const w = slotCount * PX_PER_SLOT;
   mainCanvas.style.width = `${w}px`;
   const bodyEl = mainCanvas.closest(".chart-body");
   if (bodyEl) bodyEl.style.width = `${w}px`;
-  return { main: mainChart, yaxis: yaxisChart };
+  return mainChart;
 }
 
 function initRcChartsRC() {
   const specs = [
-    ["pt","5min","#f59e0b","rc-pt-5min","rc-pt-5min-yaxis",SLOTS_PER_DAY_RC["5min"]*KEEP_DAYS_RC["5min"]],
-    ["pt","15min","#f59e0b","rc-pt-15min","rc-pt-15min-yaxis",SLOTS_PER_DAY_RC["15min"]*KEEP_DAYS_RC["15min"]],
-    ["pt","1hour","#f59e0b","rc-pt-1hour","rc-pt-1hour-yaxis",SLOTS_PER_DAY_RC["1hour"]*KEEP_DAYS_RC["1hour"]],
-    ["pd","5min","#818cf8","rc-pd-5min","rc-pd-5min-yaxis",SLOTS_PER_DAY_RC["5min"]*KEEP_DAYS_RC["5min"]],
-    ["pd","15min","#818cf8","rc-pd-15min","rc-pd-15min-yaxis",SLOTS_PER_DAY_RC["15min"]*KEEP_DAYS_RC["15min"]],
-    ["pd","1hour","#818cf8","rc-pd-1hour","rc-pd-1hour-yaxis",SLOTS_PER_DAY_RC["1hour"]*KEEP_DAYS_RC["1hour"]],
+    ["pt","5min","#f59e0b","rc-pt-5min",SLOTS_PER_DAY_RC["5min"]*KEEP_DAYS_RC["5min"]],
+    ["pt","15min","#f59e0b","rc-pt-15min",SLOTS_PER_DAY_RC["15min"]*KEEP_DAYS_RC["15min"]],
+    ["pt","1hour","#f59e0b","rc-pt-1hour",SLOTS_PER_DAY_RC["1hour"]*KEEP_DAYS_RC["1hour"]],
+    ["pd","5min","#818cf8","rc-pd-5min",SLOTS_PER_DAY_RC["5min"]*KEEP_DAYS_RC["5min"]],
+    ["pd","15min","#818cf8","rc-pd-15min",SLOTS_PER_DAY_RC["15min"]*KEEP_DAYS_RC["15min"]],
+    ["pd","1hour","#818cf8","rc-pd-1hour",SLOTS_PER_DAY_RC["1hour"]*KEEP_DAYS_RC["1hour"]],
   ];
-  for (const [sym, iv, color, cid, yid, cnt] of specs) {
+  for (const [sym, iv, color, cid, cnt] of specs) {
     const k = `${sym}-${iv}`;
-    if (!rcChartsRC[k]) rcChartsRC[k] = makeRcChartRC(k, color, cid, yid, cnt);
+    if (!rcChartsRC[k]) rcChartsRC[k] = makeRcChartRC(k, color, cid, cnt);
   }
 }
 
@@ -560,10 +533,9 @@ async function loadRcChartRC(sym, interval) {
   const scrollId = `rc-${sym}-${interval}-scroll`;
   const loadId   = `rc-${sym}-${interval}-loading`;
   const countId  = `rc-${sym}-${interval}-count`;
-  const symFull  = `KQ.m@GFEX.${sym}`;
-  const pair     = rcChartsRC[key];
-  if (!pair) return;
-  const { main, yaxis } = pair;
+  const symFull = `KQ.m@GFEX.${sym}`;
+  const chart     = rcChartsRC[key];
+  if (!chart) return;
   const { labels } = FIXED_AXIS_RC[interval];
   try {
     const res  = await fetch(`${API}/history?symbol=${encodeURIComponent(symFull)}&interval_=${interval}&limit=200&days=${KEEP_DAYS_RC[interval]}`);
@@ -573,10 +545,10 @@ async function loadRcChartRC(sym, interval) {
     for (const r of recs) priceMap[r.datetime] = r.price;
     let last = null;
     const prices = labels.map(l => (priceMap[l] != null ? (last = priceMap[l]) : last));
-    main.data.labels = labels;
-    main.data.datasets[0].data = prices;
-    main.update("none");
-    syncYRangeRC([main, yaxis]);
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = prices;
+    chart.update("none");
+    syncYRangeRC([chart]);
     document.getElementById(loadId).style.display = "none";
     document.getElementById(scrollId).style.display = "block";
     document.getElementById(countId).textContent = `${prices.filter(v => v != null).length} 条`;
